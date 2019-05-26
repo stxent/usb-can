@@ -8,7 +8,7 @@
 #include "led_indicator.h"
 /*----------------------------------------------------------------------------*/
 static enum Result indInit(void *, const void *);
-static void indIncrement(void *);
+static void indAdd(void *, unsigned int);
 static void indRelax(void *, bool);
 static void indSpin(void *);
 /*----------------------------------------------------------------------------*/
@@ -17,7 +17,7 @@ const struct IndicatorClass * const LedIndicator =
     .size = sizeof(struct LedIndicator),
     .init = indInit,
     .deinit = 0,
-    .increment = indIncrement,
+    .add = indAdd,
     .relax = indRelax,
     .spin = indSpin
 };
@@ -39,13 +39,13 @@ static enum Result indInit(void *object, const void *configBase)
   return E_OK;
 }
 /*----------------------------------------------------------------------------*/
-static void indIncrement(void *object)
+static void indAdd(void *object, unsigned int value)
 {
   struct LedIndicator * const indicator = object;
 
   if ((indicator->counter >> 1) < indicator->limit)
   {
-    __atomic_add_fetch(&indicator->counter, 2, __ATOMIC_SEQ_CST);
+    __atomic_add_fetch(&indicator->counter, value, __ATOMIC_SEQ_CST);
   }
 }
 /*----------------------------------------------------------------------------*/

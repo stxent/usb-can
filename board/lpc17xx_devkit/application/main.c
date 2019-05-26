@@ -6,84 +6,52 @@
 
 #include <halm/generic/work_queue.h>
 #include "board.h"
+#include "board_shared.h"
 /*----------------------------------------------------------------------------*/
-#define WORK_QUEUE_SIZE  4
+#define WORK_QUEUE_SIZE  2
 #define EVENT_ITERATIONS 25
 /*----------------------------------------------------------------------------*/
 static struct Board board;
 /*----------------------------------------------------------------------------*/
-static void onProxyEvent(void *argument, enum ProxyPortMode mode,
-    enum ProxyEvent event)
-{
-  struct SlCanPort * const port = argument;
-
-  if (event == SLCAN_EVENT_RX || event == SLCAN_EVENT_TX)
-  {
-//    activityIndicatorIncrement(&port->indicator);
-    indicatorIncrement(port->status);
-  }
-  else if (event != SLCAN_EVENT_NONE)
-  {
-    indicatorIncrement(board.error);
-  }
-
-  port->mode = mode;
-}
-/*----------------------------------------------------------------------------*/
-static void onTimerEventCallback(void *argument __attribute__((unused)))
+static void onTimerEventCallback(void *argument)
 {
   static unsigned int iteration = 0;
-  static bool phase = false;
+  static bool phase = true;
+
+  struct ProxyHub * const hub = argument;
   bool blink = false;
 
   if (!iteration--)
   {
-    timerDisable(board.pwmTimer);
-
     iteration = EVENT_ITERATIONS;
     phase = !phase;
     blink = true;
   }
 
-  if (board.port0.mode == SLCAN_MODE_DISABLED)
+  for (size_t i = 0; i < hub->size; ++i)
   {
-    if (blink)
-      indicatorRelax(board.port0.status, phase);
-  }
-  else
-  {
-    indicatorSpin(board.port0.status);
+    struct ProxyPort * const port = &hub->ports[i];
+
+    if (port->mode.current != port->mode.next && blink && phase)
+      port->mode.current = port->mode.next;
+
+    if (port->mode.current == SLCAN_MODE_DISABLED)
+    {
+      if (blink)
+        indicatorRelax(port->status, phase);
+    }
+    else
+      indicatorSpin(port->status);
   }
 
-  if (board.port1.mode == SLCAN_MODE_DISABLED)
-  {
-    if (blink)
-      indicatorRelax(board.port1.status, phase);
-  }
-  else
-  {
-    indicatorSpin(board.port1.status);
-  }
-
-//  activityIndicatorSpin(&board.port0.indicator, board.port0.mode, blink);
-//  activityIndicatorSpin(&board.port1.indicator, board.port1.mode, blink);
   indicatorSpin(board.error);
-
-  if (blink)
-  {
-    timerEnable(board.pwmTimer);
-  }
 }
 /*----------------------------------------------------------------------------*/
 int main(void)
 {
   boardSetupClock();
   boardSetup(&board);
-
-  timerSetCallback(board.eventTimer, onTimerEventCallback, 0);
-  proxySetCallback(board.port0.proxy, onProxyEvent, &board.port0);
-  proxySetCallback(board.port1.proxy, onProxyEvent, &board.port1);
-
+  timerSetCallback(board.eventTimer, onTimerEventCallback, board.hub);
   boardStart(&board);
 
   workQueueInit(WORK_QUEUE_SIZE);

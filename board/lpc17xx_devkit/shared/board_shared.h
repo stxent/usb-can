@@ -1,15 +1,12 @@
 /*
- * version.h
+ * board/lpc17xx_devkit/shared/board_shared.h
  * Copyright (C) 2019 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#ifndef VERSION_H_
-#define VERSION_H_
+#ifndef BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_
+#define BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_
 /*----------------------------------------------------------------------------*/
-#define VERSION_HW_MAJOR ${VERSION_HW_MAJOR}
-#define VERSION_HW_MINOR ${VERSION_HW_MINOR}
-#define VERSION_SW_MAJOR ${VERSION_SW_MAJOR}
-#define VERSION_SW_MINOR ${VERSION_SW_MINOR}
+void boardSetupClock(void);
 /*----------------------------------------------------------------------------*/
-#endif /* VERSION_H_ */
+#endif /* BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_ */

@@ -14,7 +14,6 @@ option(USE_LTO "Enable Link Time Optimization." OFF)
 
 # Configure build flags
 set(FLAGS_DEFAULT "-fdata-sections -ffunction-sections -Wall -Wextra -Wshadow -pedantic")
-set(FLAGS_DEFAULT "${FLAGS_DEFAULT} -g")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_EXTENSIONS OFF)

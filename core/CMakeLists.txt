@@ -5,8 +5,12 @@
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 include(GetGitRevisionDescription)
 
-set(VERSION_HW 0)
-git_commit_count(VERSION_SW)
+set(VERSION_HW_MAJOR 1)
+set(VERSION_HW_MINOR 0)
+git_describe(_version_sw_tag --abbrev=0 --tags)
+string(REPLACE "." ";" _version_sw_tag_splitted "${_version_sw_tag}")
+list(GET _version_sw_tag_splitted 0 VERSION_SW_MAJOR)
+list(GET _version_sw_tag_splitted 1 VERSION_SW_MINOR)
 configure_file("version_template.h" "${PROJECT_BINARY_DIR}/version.h")
 
 file(GLOB_RECURSE CORE_SOURCES "*.c")

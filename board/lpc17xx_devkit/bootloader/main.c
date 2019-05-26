@@ -10,9 +10,9 @@
 #include <halm/pin.h>
 #include <halm/platform/nxp/flash.h>
 #include <halm/platform/nxp/gptimer.h>
-#include <halm/platform/nxp/lpc17xx/clocking.h>
 #include <halm/platform/nxp/usb_device.h>
 #include <halm/usb/dfu.h>
+#include "board_shared.h"
 #include "flash_loader.h"
 /*----------------------------------------------------------------------------*/
 #define BOOT_PIN        PIN(0, 7)
@@ -23,7 +23,6 @@
 
 #define WORK_QUEUE_SIZE 2
 /*----------------------------------------------------------------------------*/
-static void setupClock(void);
 static void startFirmware(void);
 /*----------------------------------------------------------------------------*/
 static const struct FlashGeometry geometry[] = {
@@ -57,34 +56,6 @@ static const struct UsbDeviceConfig usbConfig = {
     .pid = 0x0044,
     .channel = 0
 };
-
-static const struct ExternalOscConfig extOscConfig = {
-    .frequency = 12000000
-};
-
-static const struct PllConfig sysPllConfig = {
-    .source = CLOCK_EXTERNAL,
-    .divisor = 4,
-    .multiplier = 32
-};
-
-static const struct GenericClockConfig mainClockConfig = {
-    .source = CLOCK_PLL
-};
-/*----------------------------------------------------------------------------*/
-static void setupClock(void)
-{
-  clockEnable(ExternalOsc, &extOscConfig);
-  while (!clockReady(ExternalOsc));
-
-  clockEnable(SystemPll, &sysPllConfig);
-  while (!clockReady(SystemPll));
-
-  clockEnable(MainClock, &mainClockConfig);
-
-  clockEnable(UsbClock, &mainClockConfig);
-  while (!clockReady(UsbClock));
-}
 /*----------------------------------------------------------------------------*/
 static void startFirmware(void)
 {
@@ -111,7 +82,7 @@ int main(void)
   if (pinRead(bootPin))
     startFirmware();
 
-  setupClock();
+  boardSetupClock();
 
   const struct Pin ledCan = pinInit(PIN(2, 0));
   pinOutput(ledCan, false);

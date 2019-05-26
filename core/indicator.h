@@ -7,6 +7,7 @@
 #ifndef CORE_INDICATOR_H_
 #define CORE_INDICATOR_H_
 /*----------------------------------------------------------------------------*/
+#include <stdbool.h>
 #include "can_proxy.h"
 /*----------------------------------------------------------------------------*/
 /* Class descriptor */
@@ -14,7 +15,7 @@ struct IndicatorClass
 {
   CLASS_HEADER
 
-  void (*increment)(void *);
+  void (*add)(void *, unsigned int);
   void (*relax)(void *, bool);
   void (*spin)(void *);
 };
@@ -24,11 +25,9 @@ struct Indicator
   struct Entity base;
 };
 /*----------------------------------------------------------------------------*/
-BEGIN_DECLS
-
-static inline void indicatorIncrement(void *indicator)
+static inline void indicatorAdd(void *indicator, unsigned int value)
 {
-  ((const struct IndicatorClass *)CLASS(indicator))->increment(indicator);
+  ((const struct IndicatorClass *)CLASS(indicator))->add(indicator, value);
 }
 
 static inline void indicatorRelax(void *indicator, bool phase)
@@ -40,7 +39,5 @@ static inline void indicatorSpin(void *indicator)
 {
   ((const struct IndicatorClass *)CLASS(indicator))->spin(indicator);
 }
-
-END_DECLS
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_INDICATOR_H_ */

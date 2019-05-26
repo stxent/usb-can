@@ -4,9 +4,9 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
- #ifndef CORE_FLASH_LOADER_H_
- #define CORE_FLASH_LOADER_H_
-
+#ifndef CORE_FLASH_LOADER_H_
+#define CORE_FLASH_LOADER_H_
+/*----------------------------------------------------------------------------*/
 #include <halm/usb/dfu.h>
 /*----------------------------------------------------------------------------*/
 extern const struct EntityClass * const FlashLoader;
@@ -57,4 +57,4 @@ struct FlashLoader
   bool eraseQueued;
 };
 /*----------------------------------------------------------------------------*/
-#endif // CORE_FLASH_LOADER_H_
+#endif /* CORE_FLASH_LOADER_H_ */
