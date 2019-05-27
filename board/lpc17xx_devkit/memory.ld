@@ -8,11 +8,8 @@ EXTERN(vectorTable)
 
 MEMORY
 {
-  /* 1758 tests */
-  FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 0x010000 /* 64 KiB */
-  /* 1756 Release */
-  /*FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 0x004000*/ /* 16 KiB */
-  /*RAM (rwx)  : ORIGIN = 0x10000000, LENGTH = 0x004000*/ /* 16 KiB */
+  /* Internal Flash */
+  FLASH (rx) : ORIGIN = ${FLASH_ORIGIN}, LENGTH = ${FLASH_LENGTH}
   /* AHB SRAM0 */
   RAM (rwx)  : ORIGIN = 0x2007C000, LENGTH = 0x004000 /* 16 KiB */
 
@@ -132,4 +129,5 @@ SECTIONS
 
   PROVIDE(end = heapStart);
   PROVIDE(_stack = ORIGIN(RAM) + LENGTH(RAM));
+  PROVIDE(_firmware = LENGTH(FLASH));
 }

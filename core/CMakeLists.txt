@@ -13,6 +13,7 @@ list(GET _version_sw_tag_splitted 0 VERSION_SW_MAJOR)
 list(GET _version_sw_tag_splitted 1 VERSION_SW_MINOR)
 configure_file("version_template.h" "${PROJECT_BINARY_DIR}/version.h")
 
+# Find source files
 file(GLOB_RECURSE CORE_SOURCES "*.c")
 add_library(core OBJECT ${CORE_SOURCES})
 target_compile_definitions(core PRIVATE -D${PLATFORM})
