@@ -50,7 +50,7 @@ static void mockEventHandler(void *, enum CanProxyMode, enum CanProxyEvent);
 static size_t processMessage(struct CanProxy *, const uint8_t *, size_t,
     char *);
 static bool sendMessageGroup(struct CanProxy *, uint8_t, size_t, size_t);
-static bool sendTestMessages(struct CanProxy *, const uint8_t *);
+static bool sendTestMessages(struct CanProxy *, const uint8_t *, size_t);
 static bool setCustomRate(struct CanProxy *, const uint8_t *);
 static bool setPredefinedRate(struct CanProxy *, const uint8_t *);
 static void onCanEventCallback(void *);
@@ -266,7 +266,7 @@ static size_t processMessage(struct CanProxy *proxy, const uint8_t *request,
 
     case 'X':
     {
-      if (sendTestMessages(proxy, request))
+      if (sendTestMessages(proxy, request, length))
         strcpy(response, "\r");
       else
         strcpy(response, "\a");
@@ -340,7 +340,8 @@ static bool sendMessageGroup(struct CanProxy *proxy, uint8_t flags,
   return true;
 }
 /*----------------------------------------------------------------------------*/
-static bool sendTestMessages(struct CanProxy *proxy, const uint8_t *request)
+static bool sendTestMessages(struct CanProxy *proxy, const uint8_t *request,
+    size_t length)
 {
   struct GroupSettings
   {
@@ -364,17 +365,32 @@ static bool sendTestMessages(struct CanProxy *proxy, const uint8_t *request)
       {CAN_RTR | CAN_EXT_ID, 0}
   };
 
-  const unsigned int code = hexToBin(request[1]);
-
-  if (code < ARRAY_SIZE(GROUP_SETTINGS))
+  if (length == 1)
   {
-    return sendMessageGroup(proxy, GROUP_SETTINGS[code].length,
-        GROUP_SETTINGS[code].flags, GROUP_SIZE);
+    bool completed = true;
+
+    for (size_t i = 0; completed && (i < ARRAY_SIZE(GROUP_SETTINGS)); ++i)
+    {
+      completed = sendMessageGroup(proxy, GROUP_SETTINGS[i].length,
+          GROUP_SETTINGS[i].flags, GROUP_SIZE);
+    }
+
+    return completed;
+  }
+  else if (length == 2)
+  {
+    const unsigned int code = hexToBin(request[1]);
+
+    if (code < ARRAY_SIZE(GROUP_SETTINGS))
+    {
+      return sendMessageGroup(proxy, GROUP_SETTINGS[code].length,
+          GROUP_SETTINGS[code].flags, GROUP_SIZE);
+    }
+    else
+      return false;
   }
   else
-  {
     return false;
-  }
 }
 /*----------------------------------------------------------------------------*/
 static bool setCustomRate(struct CanProxy *proxy, const uint8_t *request)

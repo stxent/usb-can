@@ -9,7 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif()
 
-# option(BUILD_TESTS "Build tests." OFF)
+option(USE_DFU "Use memory layout for the bootloader." OFF)
 option(USE_LTO "Enable Link Time Optimization." OFF)
 
 # Configure build flags

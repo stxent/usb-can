@@ -15,16 +15,13 @@
 #include "board_shared.h"
 #include "flash_loader.h"
 /*----------------------------------------------------------------------------*/
-#define BOOT_PIN        PIN(0, 7)
-
-//#define FIRMWARE_OFFSET 0x4000
-#define FIRMWARE_OFFSET 0x10000
 #define TRANSFER_SIZE   128
-
 #define WORK_QUEUE_SIZE 2
 /*----------------------------------------------------------------------------*/
 static void startFirmware(void);
 /*----------------------------------------------------------------------------*/
+extern const uint32_t _firmware;
+
 static const struct FlashGeometry geometry[] = {
     {
         .count = 16,
@@ -42,7 +39,10 @@ static const struct FlashGeometry geometry[] = {
     }
 };
 /*----------------------------------------------------------------------------*/
-static struct GpTimerConfig timerConfig = {
+static const PinNumber bootPinNumber = PIN(2, 10);
+static const PinNumber ledPinNumber = PIN(1, 10);
+
+static const struct GpTimerConfig timerConfig = {
     .frequency = 1000,
     .channel = 0
 };
@@ -59,15 +59,15 @@ static const struct UsbDeviceConfig usbConfig = {
 /*----------------------------------------------------------------------------*/
 static void startFirmware(void)
 {
-  const uint32_t * const table = (const uint32_t *)FIRMWARE_OFFSET;
+  const uint32_t * const table = &_firmware;
 
   if (((table[0] >= 0x10000000 && table[0] <= 0x10008000)
-      || (table[0] >= 0x2007C000 && table[0] <= 0x20084000))
+          || (table[0] >= 0x2007C000 && table[0] <= 0x20084000))
       && table[1] <= 0x00080000)
   {
     void (*resetVector)(void) = (void (*)(void))table[1];
 
-    nvicSetVectorTableOffset(FIRMWARE_OFFSET);
+    nvicSetVectorTableOffset((uint32_t)&_firmware);
     __setMainStackPointer(table[0]);
     resetVector();
   }
@@ -75,23 +75,16 @@ static void startFirmware(void)
 /*----------------------------------------------------------------------------*/
 int main(void)
 {
-  const struct Pin bootPin = pinInit(BOOT_PIN);
+  const struct Pin bootPin = pinInit(bootPinNumber);
   pinInput(bootPin);
-  pinSetPull(bootPin, PIN_PULLUP);
 
   if (pinRead(bootPin))
     startFirmware();
 
   boardSetupClock();
 
-  const struct Pin ledCan = pinInit(PIN(2, 0));
-  pinOutput(ledCan, false);
-  const struct Pin ledFlt = pinInit(PIN(2, 1));
-  pinOutput(ledFlt, true);
-  const struct Pin ledCanFT = pinInit(PIN(2, 2));
-  pinOutput(ledCanFT, false);
-  const struct Pin ledStat = pinInit(PIN(2, 3));
-  pinOutput(ledStat, false);
+  const struct Pin led = pinInit(ledPinNumber);
+  pinOutput(led, true);
 
   struct Interface * const flash = init(Flash, 0);
   assert(flash);
@@ -114,7 +107,7 @@ int main(void)
       .geometry = geometry,
       .flash = flash,
       .device = dfu,
-      .offset = FIRMWARE_OFFSET,
+      .offset = (size_t)&_firmware,
       .reset = nvicResetCore
   };
   struct FlashLoader * const loader = init(FlashLoader, &loaderConfig);
