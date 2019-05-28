@@ -8,16 +8,22 @@
 #include <halm/core/cortex/nvic.h>
 #include <halm/generic/work_queue.h>
 #include <halm/pin.h>
+#include <halm/platform/nxp/backup_domain.h>
 #include <halm/platform/nxp/flash.h>
 #include <halm/platform/nxp/gptimer.h>
+#include <halm/platform/nxp/lpc17xx/system_defs.h>
 #include <halm/platform/nxp/usb_device.h>
 #include <halm/usb/dfu.h>
 #include "board_shared.h"
 #include "flash_loader.h"
 /*----------------------------------------------------------------------------*/
+#define MAGIC_WORD      0x3A84508FUL
 #define TRANSFER_SIZE   128
 #define WORK_QUEUE_SIZE 2
 /*----------------------------------------------------------------------------*/
+static void clearResetRequest(void);
+static bool isBootloaderRequested(void);
+static void onResetRequest(void);
 static void startFirmware(void);
 /*----------------------------------------------------------------------------*/
 extern const uint32_t _firmware;
@@ -39,7 +45,6 @@ static const struct FlashGeometry geometry[] = {
     }
 };
 /*----------------------------------------------------------------------------*/
-static const PinNumber bootPinNumber = PIN(2, 10);
 static const PinNumber ledPinNumber = PIN(1, 10);
 
 static const struct GpTimerConfig timerConfig = {
@@ -56,6 +61,26 @@ static const struct UsbDeviceConfig usbConfig = {
     .pid = 0x0044,
     .channel = 0
 };
+/*----------------------------------------------------------------------------*/
+static void clearResetRequest(void)
+{
+  LPC_SC->RSID = RSID_POR;
+  *(uint32_t *)backupDomainAddress() = 0;
+}
+/*----------------------------------------------------------------------------*/
+static bool isBootloaderRequested(void)
+{
+  const bool hwReset = (LPC_SC->RSID & RSID_POR) == 0;
+  const bool fwRequest = *(const uint32_t *)backupDomainAddress() == MAGIC_WORD;
+
+  return hwReset && !fwRequest;
+}
+/*----------------------------------------------------------------------------*/
+static void onResetRequest(void)
+{
+  *(uint32_t *)backupDomainAddress() = MAGIC_WORD;
+  nvicResetCore();
+}
 /*----------------------------------------------------------------------------*/
 static void startFirmware(void)
 {
@@ -75,11 +100,11 @@ static void startFirmware(void)
 /*----------------------------------------------------------------------------*/
 int main(void)
 {
-  const struct Pin bootPin = pinInit(bootPinNumber);
-  pinInput(bootPin);
-
-  if (pinRead(bootPin))
+  if (!isBootloaderRequested())
+  {
+    clearResetRequest();
     startFirmware();
+  }
 
   boardSetupClock();
 
@@ -108,7 +133,7 @@ int main(void)
       .flash = flash,
       .device = dfu,
       .offset = (size_t)&_firmware,
-      .reset = nvicResetCore
+      .reset = onResetRequest
   };
   struct FlashLoader * const loader = init(FlashLoader, &loaderConfig);
   assert(loader);
