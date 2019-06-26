@@ -26,6 +26,7 @@ if(${USE_LTO})
 endif()
 
 # Configure XCORE library
+set(BITWISE_CRC ON)
 add_subdirectory(libs/xcore xcore)
 
 # Configure HALM library, CONFIG_FILE should be defined

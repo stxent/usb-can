@@ -7,6 +7,12 @@
 #ifndef BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_
 #define BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_
 /*----------------------------------------------------------------------------*/
+#include <xcore/interface.h>
+#include "param_storage.h"
+/*----------------------------------------------------------------------------*/
 void boardSetupClock(void);
+struct Interface *boardSetupEeprom(struct Interface *);
+struct Interface *boardSetupI2C(void);
+struct Entity *boardSetupUsb(const struct SerialNumber *);
 /*----------------------------------------------------------------------------*/
 #endif /* BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_ */

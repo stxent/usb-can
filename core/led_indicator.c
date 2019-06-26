@@ -8,8 +8,9 @@
 #include "led_indicator.h"
 /*----------------------------------------------------------------------------*/
 static enum Result indInit(void *, const void *);
-static void indAdd(void *, unsigned int);
+static void indIncrement(void *);
 static void indRelax(void *, bool);
+static void indSet(void *, unsigned int);
 static void indSpin(void *);
 /*----------------------------------------------------------------------------*/
 const struct IndicatorClass * const LedIndicator =
@@ -17,8 +18,9 @@ const struct IndicatorClass * const LedIndicator =
     .size = sizeof(struct LedIndicator),
     .init = indInit,
     .deinit = 0,
-    .add = indAdd,
+    .increment = indIncrement,
     .relax = indRelax,
+    .set = indSet,
     .spin = indSpin
 };
 /*----------------------------------------------------------------------------*/
@@ -39,13 +41,13 @@ static enum Result indInit(void *object, const void *configBase)
   return E_OK;
 }
 /*----------------------------------------------------------------------------*/
-static void indAdd(void *object, unsigned int value)
+static void indIncrement(void *object)
 {
   struct LedIndicator * const indicator = object;
 
   if ((indicator->counter >> 1) < indicator->limit)
   {
-    __atomic_add_fetch(&indicator->counter, value, __ATOMIC_SEQ_CST);
+    __atomic_add_fetch(&indicator->counter, 2, __ATOMIC_SEQ_CST);
   }
 }
 /*----------------------------------------------------------------------------*/
@@ -53,6 +55,12 @@ static void indRelax(void *object, bool phase)
 {
   struct LedIndicator * const indicator = object;
   pinWrite(indicator->led, phase ^ indicator->inversion);
+}
+/*----------------------------------------------------------------------------*/
+static void indSet(void *object, unsigned int value)
+{
+  struct LedIndicator * const indicator = object;
+  indicator->counter = value;
 }
 /*----------------------------------------------------------------------------*/
 static void indSpin(void *object)

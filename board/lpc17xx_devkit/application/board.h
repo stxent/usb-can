@@ -9,11 +9,14 @@
 /*----------------------------------------------------------------------------*/
 #include <halm/timer.h>
 #include <xcore/interface.h>
+#include "param_storage.h"
 #include "proxy_port.h"
 /*----------------------------------------------------------------------------*/
 struct Board
 {
   struct Entity *usb;
+  struct Interface *i2c;
+  struct Interface *eeprom;
   struct Interface *serial;
   struct Timer *chronoTimer;
   struct Timer *eventTimer;
@@ -21,6 +24,9 @@ struct Board
   struct Indicator *status;
   struct Interface *can;
   struct ProxyHub *hub;
+
+  struct ParamStorage storage;
+  struct SerialNumber number;
 };
 /*----------------------------------------------------------------------------*/
 void boardSetup(struct Board *);
