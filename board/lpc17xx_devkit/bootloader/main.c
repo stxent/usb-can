@@ -12,10 +12,10 @@
 #include <halm/platform/nxp/flash.h>
 #include <halm/platform/nxp/gptimer.h>
 #include <halm/platform/nxp/lpc17xx/system_defs.h>
-#include <halm/platform/nxp/usb_device.h>
 #include <halm/usb/dfu.h>
 #include "board_shared.h"
 #include "flash_loader.h"
+#include "param_storage.h"
 /*----------------------------------------------------------------------------*/
 #define MAGIC_WORD      0x3A84508FUL
 #define TRANSFER_SIZE   128
@@ -49,16 +49,6 @@ static const PinNumber ledPinNumber = PIN(1, 10);
 
 static const struct GpTimerConfig timerConfig = {
     .frequency = 1000,
-    .channel = 0
-};
-
-static const struct UsbDeviceConfig usbConfig = {
-    .dm = PIN(0, 30),
-    .dp = PIN(0, 29),
-    .connect = PIN(2, 9),
-    .vbus = PIN(1, 30),
-    .vid = 0x15A2,
-    .pid = 0x0044,
     .channel = 0
 };
 /*----------------------------------------------------------------------------*/
@@ -117,7 +107,20 @@ int main(void)
   struct Timer * const timer = init(GpTimer, &timerConfig);
   assert(timer);
 
-  struct Entity * const usb = init(UsbDevice, &usbConfig);
+  /* I2C and parameter storage*/
+  struct Interface * const i2c = boardSetupI2C();
+  assert(i2c);
+  struct Interface * const eeprom = boardSetupEeprom(i2c);
+  assert(eeprom);
+
+  struct ParamStorage parameters;
+  struct SerialNumber number;
+
+  storageInit(&parameters, eeprom, 0);
+  storageLoad(&parameters);
+  makeSerialNumber(&number, parameters.values.serial);
+
+  struct Entity * const usb = boardSetupUsb(&number);
   assert(usb);
 
   const struct DfuConfig dfuConfig = {

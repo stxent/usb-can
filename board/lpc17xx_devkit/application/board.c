@@ -9,10 +9,12 @@
 #include <halm/pin.h>
 #include <halm/platform/nxp/can.h>
 #include <halm/platform/nxp/gptimer.h>
-#include <halm/platform/nxp/usb_device.h>
 #include <halm/usb/cdc_acm.h>
 #include "board.h"
+#include "board_shared.h"
+#include "helpers.h"
 #include "led_indicator.h"
+#include "version.h"
 /*----------------------------------------------------------------------------*/
 #define EVENT_RATE 50
 #define MAX_BLINKS 16
@@ -36,17 +38,6 @@ static const struct GpTimerConfig chronoTimerConfig = {
     .channel = 0
 };
 
-static const struct UsbDeviceConfig usbConfig = {
-    .dm = PIN(0, 30),
-    .dp = PIN(0, 29),
-    .connect = PIN(2, 9),
-    .vbus = PIN(1, 30),
-    .vid = 0x2404,
-    .pid = 0x03EB,
-    .priority = 1,
-    .channel = 0
-};
-
 static const struct LedIndicatorConfig errorLedConfig = {
     .pin = PIN(1, 10),
     .limit = MAX_BLINKS,
@@ -59,12 +50,9 @@ static const struct LedIndicatorConfig portLedConfig = {
     .inversion = true
 };
 /*----------------------------------------------------------------------------*/
-void boardSetup(struct Board *board)
+static void boardSetupSerial(struct Board *board)
 {
-  /* USB */
-  board->usb = init(UsbDevice, &usbConfig);
-  assert(board->usb);
-
+  /* CDC */
   const struct CdcAcmConfig serialConfig = {
       .device = board->usb,
       .rxBuffers = 4,
@@ -78,6 +66,24 @@ void boardSetup(struct Board *board)
   };
   board->serial = init(CdcAcm, &serialConfig);
   assert(board->serial);
+}
+/*----------------------------------------------------------------------------*/
+void boardSetup(struct Board *board)
+{
+  /* I2C and parameter storage*/
+  board->i2c = boardSetupI2C();
+  assert(board->i2c);
+  board->eeprom = boardSetupEeprom(board->i2c);
+  assert(board->eeprom);
+
+  storageInit(&board->storage, board->eeprom, 0);
+  storageLoad(&board->storage);
+  makeSerialNumber(&board->number, board->storage.values.serial);
+
+  /* USB */
+  board->usb = boardSetupUsb(&board->number);
+  assert(board->usb);
+  boardSetupSerial(board);
 
   /* Other peripherals */
   board->chronoTimer = init(GpTimer, &chronoTimerConfig);
@@ -106,7 +112,8 @@ void boardSetup(struct Board *board)
       .serial = board->serial,
       .chrono = board->chronoTimer,
       .error = board->error,
-      .status = board->status
+      .status = board->status,
+      .storage = &board->storage
   };
   proxyPortInit(&board->hub->ports[0], &proxyPortConfig);
 }

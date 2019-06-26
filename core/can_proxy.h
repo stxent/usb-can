@@ -9,6 +9,7 @@
 /*----------------------------------------------------------------------------*/
 #include <halm/timer.h>
 #include <xcore/interface.h>
+#include "param_storage.h"
 /*----------------------------------------------------------------------------*/
 extern const struct EntityClass * const CanProxy;
 
@@ -40,6 +41,7 @@ struct CanProxyConfig
   struct Interface *can;
   struct Interface *serial;
   struct Timer *chrono;
+  struct ParamStorage *storage;
 };
 /*----------------------------------------------------------------------------*/
 void proxySetCallback(struct CanProxy *, ProxyCallback, void *);

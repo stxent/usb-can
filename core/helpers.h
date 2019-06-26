@@ -7,6 +7,7 @@
 #ifndef CORE_HELPERS_H_
 #define CORE_HELPERS_H_
 /*----------------------------------------------------------------------------*/
+#include <string.h>
 #include <xcore/memory.h>
 /*----------------------------------------------------------------------------*/
 static inline uint8_t binToHex(uint8_t value)
@@ -23,6 +24,12 @@ static inline uint32_t binToHex4(uint16_t value)
   return toBigEndian32(t1 + t2 + 0x30303030UL);
 }
 
+static inline void inPlaceBinToHex4(void *buffer, uint16_t value)
+{
+  const uint32_t converted = binToHex4(value);
+  memcpy(buffer, &converted, sizeof(converted));
+}
+
 static inline uint8_t hexToBin(uint8_t code)
 {
   code &= 0xCF;
@@ -36,6 +43,13 @@ static inline uint16_t hexToBin4(uint32_t value)
   const uint32_t t2 = (t1 | (t1 >> 4)) & 0x00FF00FFUL;
 
   return t2 | (t2 >> 8);
+}
+
+static inline uint16_t inPlaceHexToBin4(const void *buffer)
+{
+  uint32_t text;
+  memcpy(&text, buffer, sizeof(text));
+  return hexToBin4(text);
 }
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_HELPERS_H_ */

@@ -17,14 +17,17 @@ static void onProxyEvent(void *object, enum CanProxyMode mode,
   struct ProxyPort * const port = object;
 
   if (event == SLCAN_EVENT_RX || event == SLCAN_EVENT_TX)
-    indicatorAdd(port->status, 2);
+    indicatorIncrement(port->status);
   else if (event != SLCAN_EVENT_NONE)
-    indicatorAdd(port->error, 2);
+    indicatorIncrement(port->error);
 
-  if (port->mode.next != mode && mode != SLCAN_MODE_DISABLED)
-    indicatorAdd(port->status, 1);
+  if (port->mode.next != mode)
+  {
+    if (mode != SLCAN_MODE_DISABLED)
+      indicatorSet(port->status, 1);
 
-  port->mode.next = mode;
+    port->mode.next = mode;
+  }
 }
 /*----------------------------------------------------------------------------*/
 struct ProxyHub *makeProxyHub(size_t size)
@@ -43,7 +46,8 @@ void proxyPortInit(struct ProxyPort *port, const struct ProxyPortConfig *config)
   const struct CanProxyConfig proxyConfig = {
       .can = config->can,
       .serial = config->serial,
-      .chrono = config->chrono
+      .chrono = config->chrono,
+      .storage = config->storage
   };
   struct CanProxy * const proxy = init(CanProxy, &proxyConfig);
   assert(proxy);

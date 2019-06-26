@@ -11,6 +11,17 @@ endif()
 add_subdirectory("${BOARD}")
 set(FLAGS_LINKER "--specs=nosys.specs --specs=nano.specs -Wl,--gc-sections")
 
+# Generate version file
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
+include(GetGitRevisionDescription)
+
+git_describe(_version_sw_tag --abbrev=0 --tags)
+string(REPLACE "." ";" _version_sw_tag_splitted "${_version_sw_tag}")
+list(GET _version_sw_tag_splitted 0 VERSION_SW_MAJOR)
+list(GET _version_sw_tag_splitted 1 VERSION_SW_MINOR)
+configure_file("version_template.h" "${PROJECT_BINARY_DIR}/version.h")
+
+# Find source files
 file(GLOB_RECURSE APPLICATION_SOURCES "${BOARD}/application/*.c")
 file(GLOB_RECURSE BOOTLOADER_SOURCES "${BOARD}/bootloader/*.c")
 file(GLOB_RECURSE SHARED_SOURCES "${BOARD}/shared/*.c")
@@ -18,11 +29,11 @@ file(GLOB_RECURSE SHARED_SOURCES "${BOARD}/shared/*.c")
 # Main application
 add_library(application OBJECT ${APPLICATION_SOURCES} ${SHARED_SOURCES})
 target_compile_definitions(application PRIVATE -D${PLATFORM})
-target_include_directories(application PRIVATE "${BOARD}/application" "${BOARD}/shared")
+target_include_directories(application PRIVATE "${BOARD}/application" "${BOARD}/shared" ${PROJECT_BINARY_DIR})
 target_link_libraries(application PUBLIC halm xcore ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/application.ld")
 
 # Bootloader
 add_library(bootloader OBJECT ${BOOTLOADER_SOURCES} ${SHARED_SOURCES})
 target_compile_definitions(bootloader PRIVATE -D${PLATFORM})
-target_include_directories(bootloader PRIVATE "${BOARD}/bootloader" "${BOARD}/shared")
+target_include_directories(bootloader PRIVATE "${BOARD}/bootloader" "${BOARD}/shared" ${PROJECT_BINARY_DIR})
 target_link_libraries(bootloader PUBLIC halm xcore ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/bootloader.ld")

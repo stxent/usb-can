@@ -23,6 +23,7 @@ struct CanProxy
   struct Interface *can;
   struct Interface *serial;
   struct Timer *chrono;
+  struct ParamStorage *storage;
 
   ProxyCallback callback;
   void *argument;
@@ -287,8 +288,11 @@ static size_t processMessage(struct CanProxy *proxy, const uint8_t *request,
       return packNumber16(response, (VERSION_SW_MAJOR << 8) | VERSION_SW_MINOR);
 
     case 'N':
-      /* Get serial number */
-      return packNumber16(response, 0xFFFF);
+      /* Get the serial number */
+      if (!proxy->storage)
+        return packNumber16(response, 0xFFFF);
+      else
+        return packNumber16(response, (uint16_t)proxy->storage->values.serial);
 
     case 'F':
       strcpy(response, "z00\r");
@@ -395,11 +399,8 @@ static bool sendTestMessages(struct CanProxy *proxy, const uint8_t *request,
 /*----------------------------------------------------------------------------*/
 static bool setCustomRate(struct CanProxy *proxy, const uint8_t *request)
 {
-  const uint32_t rate = hexToBin(request[5])
-      | (hexToBin(request[4]) << 4)
-      | (hexToBin(request[3]) << 8)
-      | (hexToBin(request[2]) << 12)
-      | (hexToBin(request[1]) << 16);
+  const uint32_t rate = (hexToBin(request[1]) << 16)
+      | inPlaceHexToBin4(&request[2]);
 
   return ifSetParam(proxy->can, IF_RATE, &rate) == E_OK;
 }
@@ -467,9 +468,11 @@ static enum Result proxyInit(void *object, const void *configBase)
 
   proxy->can = config->can;
   proxy->serial = config->serial;
+  proxy->chrono = config->chrono;
+  proxy->storage = config->storage;
+
   proxy->callback = mockEventHandler;
   proxy->argument = 0;
-  proxy->chrono = config->chrono;
   proxy->mode = SLCAN_MODE_DISABLED;
   proxy->parser.position = 0;
   proxy->parser.skip = false;

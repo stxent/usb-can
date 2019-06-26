@@ -15,8 +15,9 @@ struct IndicatorClass
 {
   CLASS_HEADER
 
-  void (*add)(void *, unsigned int);
+  void (*increment)(void *);
   void (*relax)(void *, bool);
+  void (*set)(void *, unsigned int);
   void (*spin)(void *);
 };
 
@@ -25,14 +26,19 @@ struct Indicator
   struct Entity base;
 };
 /*----------------------------------------------------------------------------*/
-static inline void indicatorAdd(void *indicator, unsigned int value)
+static inline void indicatorIncrement(void *indicator)
 {
-  ((const struct IndicatorClass *)CLASS(indicator))->add(indicator, value);
+  ((const struct IndicatorClass *)CLASS(indicator))->increment(indicator);
 }
 
 static inline void indicatorRelax(void *indicator, bool phase)
 {
   ((const struct IndicatorClass *)CLASS(indicator))->relax(indicator, phase);
+}
+
+static inline void indicatorSet(void *indicator, unsigned int value)
+{
+  ((const struct IndicatorClass *)CLASS(indicator))->set(indicator, value);
 }
 
 static inline void indicatorSpin(void *indicator)
