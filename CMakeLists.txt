@@ -9,6 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "The type of build: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif()
 
+option(BITWISE_CRC "Enable bitwise implementations of CRC." ON)
 option(USE_DFU "Use memory layout for the bootloader." OFF)
 option(USE_LTO "Enable Link Time Optimization." OFF)
 
@@ -26,7 +27,6 @@ if(${USE_LTO})
 endif()
 
 # Configure XCORE library
-set(BITWISE_CRC ON)
 add_subdirectory(libs/xcore xcore)
 
 # Configure HALM library, CONFIG_FILE should be defined
