@@ -9,11 +9,11 @@ set(STRING_PRODUCT "LPC17xx DevKit" PARENT_SCOPE)
 
 # Generate linker scripts
 if(${CMAKE_BUILD_TYPE} STREQUAL "Release" OR ${CMAKE_BUILD_TYPE} STREQUAL "MinSizeRel")
-    set(APP_LENGTH 32768)
+    set(APP_LENGTH 49152)
     set(DFU_LENGTH 16384)
     set(APP_ORIGIN ${DFU_LENGTH})
 else()
-    set(APP_LENGTH 65536)
+    set(APP_LENGTH 196608)
     set(DFU_LENGTH 65536)
 
     if(${USE_DFU})

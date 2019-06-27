@@ -15,7 +15,6 @@
 #include <halm/usb/dfu.h>
 #include "board_shared.h"
 #include "flash_loader.h"
-#include "param_storage.h"
 /*----------------------------------------------------------------------------*/
 #define MAGIC_WORD      0x3A84508FUL
 #define TRANSFER_SIZE   128
@@ -107,20 +106,8 @@ int main(void)
   struct Timer * const timer = init(GpTimer, &timerConfig);
   assert(timer);
 
-  /* I2C and parameter storage*/
-  struct Interface * const i2c = boardSetupI2C();
-  assert(i2c);
-  struct Interface * const eeprom = boardSetupEeprom(i2c);
-  assert(eeprom);
-
-  struct ParamStorage parameters;
-  struct SerialNumber number;
-
-  storageInit(&parameters, eeprom, 0);
-  storageLoad(&parameters);
-  makeSerialNumber(&number, parameters.values.serial);
-
-  struct Entity * const usb = boardSetupUsb(&number);
+  /* USB */
+  struct Entity * const usb = boardSetupUsb(0);
   assert(usb);
 
   const struct DfuConfig dfuConfig = {

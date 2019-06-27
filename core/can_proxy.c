@@ -294,6 +294,22 @@ static size_t processMessage(struct CanProxy *proxy, const uint8_t *request,
       else
         return packNumber16(response, (uint16_t)proxy->storage->values.serial);
 
+    case 'n':
+      /* Set the serial number */
+      if (length == 5 && proxy->storage &&
+          !isSerialNumberValid(proxy->storage->values.serial))
+      {
+        proxy->storage->values.serial = inPlaceHexToBin4(&request[1]);
+
+        if (storageSave(proxy->storage))
+          strcpy(response, "\r");
+        else
+          strcpy(response, "\a");
+      }
+      else
+        strcpy(response, "\a");
+      break;
+
     case 'F':
       strcpy(response, "z00\r");
       break;
