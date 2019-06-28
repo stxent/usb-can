@@ -18,7 +18,7 @@ static void onProxyEvent(void *object, enum CanProxyMode mode,
 
   if (event == SLCAN_EVENT_RX || event == SLCAN_EVENT_TX)
     indicatorIncrement(port->status);
-  else if (event != SLCAN_EVENT_NONE)
+  else if (event != SLCAN_EVENT_NONE && mode != SLCAN_MODE_DISABLED)
     indicatorIncrement(port->error);
 
   if (port->mode.next != mode)
