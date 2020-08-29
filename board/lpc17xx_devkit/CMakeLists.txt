@@ -8,13 +8,13 @@ set(STRING_VENDOR "Private" PARENT_SCOPE)
 set(STRING_PRODUCT "LPC17xx DevKit" PARENT_SCOPE)
 
 # Generate linker scripts
-if(${CMAKE_BUILD_TYPE} STREQUAL "Release" OR ${CMAKE_BUILD_TYPE} STREQUAL "MinSizeRel")
-    set(APP_LENGTH 49152)
-    set(DFU_LENGTH 16384)
+if((DEFINED CMAKE_BUILD_TYPE) AND (${CMAKE_BUILD_TYPE} MATCHES "Release|MinSizeRel"))
+    math(EXPR APP_LENGTH "48 * 1024")
+    math(EXPR DFU_LENGTH "16 * 1024")
     set(APP_ORIGIN ${DFU_LENGTH})
 else()
-    set(APP_LENGTH 196608)
-    set(DFU_LENGTH 65536)
+    math(EXPR APP_LENGTH "192 * 1024")
+    math(EXPR DFU_LENGTH "64 * 1024")
 
     if(${USE_DFU})
       set(APP_ORIGIN ${DFU_LENGTH})

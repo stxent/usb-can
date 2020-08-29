@@ -25,7 +25,7 @@ static bool isBootloaderRequested(void);
 static void onResetRequest(void);
 static void startFirmware(void);
 /*----------------------------------------------------------------------------*/
-extern const uint32_t _firmware;
+extern const uint32_t _firmware[2];
 
 static const struct FlashGeometry geometry[] = {
     {
@@ -73,7 +73,7 @@ static void onResetRequest(void)
 /*----------------------------------------------------------------------------*/
 static void startFirmware(void)
 {
-  const uint32_t * const table = &_firmware;
+  const uint32_t * const table = _firmware;
 
   if (((table[0] >= 0x10000000 && table[0] <= 0x10008000)
           || (table[0] >= 0x2007C000 && table[0] <= 0x20084000))
@@ -81,7 +81,7 @@ static void startFirmware(void)
   {
     void (*resetVector)(void) = (void (*)(void))table[1];
 
-    nvicSetVectorTableOffset((uint32_t)&_firmware);
+    nvicSetVectorTableOffset((uint32_t)_firmware);
     __setMainStackPointer(table[0]);
     resetVector();
   }

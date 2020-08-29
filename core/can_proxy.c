@@ -14,6 +14,7 @@
 #include "can_proxy_defs.h"
 #include "helpers.h"
 #include "indicator.h"
+#include "system.h"
 #include "version.h"
 /*----------------------------------------------------------------------------*/
 struct CanProxy
@@ -222,14 +223,14 @@ static size_t processMessage(struct CanProxy *proxy, const uint8_t *request,
   switch (request[0])
   {
     case 's':
-      if (setCustomRate(proxy, request))
+      if (length >= 5 && length <= 7 && setCustomRate(proxy, request))
         strcpy(response, "\r");
       else
         strcpy(response, "\a");
       break;
 
     case 'S':
-      if (setPredefinedRate(proxy, request))
+      if (length == 2 && setPredefinedRate(proxy, request))
         strcpy(response, "\r");
       else
         strcpy(response, "\a");
@@ -280,12 +281,18 @@ static size_t processMessage(struct CanProxy *proxy, const uint8_t *request,
     }
 
     case 'V':
+    {
       /* Get hardware version */
-      return packNumber16(response, (VERSION_HW_MAJOR << 8) | VERSION_HW_MINOR);
+      const struct BoardVersion * const ver = getBoardVersion();
+      return packNumber16(response, (ver->hw.major << 8) | ver->hw.minor);
+    }
 
     case 'v':
+    {
       /* Get software version */
-      return packNumber16(response, (VERSION_SW_MAJOR << 8) | VERSION_SW_MINOR);
+      const struct BoardVersion * const ver = getBoardVersion();
+      return packNumber16(response, (ver->sw.major << 8) | ver->sw.minor);
+    }
 
     case 'N':
       /* Get the serial number */
@@ -308,6 +315,11 @@ static size_t processMessage(struct CanProxy *proxy, const uint8_t *request,
       }
       else
         strcpy(response, "\a");
+      break;
+
+    case 'B':
+      resetToBootloader();
+      strcpy(response, "\a");
       break;
 
     case 'F':
@@ -415,8 +427,10 @@ static bool sendTestMessages(struct CanProxy *proxy, const uint8_t *request,
 /*----------------------------------------------------------------------------*/
 static bool setCustomRate(struct CanProxy *proxy, const uint8_t *request)
 {
-  const uint32_t rate = (hexToBin(request[1]) << 16)
-      | inPlaceHexToBin4(&request[2]);
+  uint32_t rate = 0;
+
+  while (*(++request))
+    rate = (rate << 4) | hexToBin(*request);
 
   return ifSetParam(proxy->can, IF_RATE, &rate) == E_OK;
 }

@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <halm/delay.h> // XXX
-#include <xcore/asm.h>
+#include <xcore/accel.h>
 #include <xcore/bits.h>
 #include "eeprom_24xx.h"
 /*----------------------------------------------------------------------------*/

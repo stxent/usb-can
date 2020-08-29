@@ -31,9 +31,13 @@ static inline bool isSerialNumberValid(uint64_t number)
   return number != 0 && number != (uint64_t)-1;
 }
 /*----------------------------------------------------------------------------*/
+BEGIN_DECLS
+
 void makeSerialNumber(struct SerialNumber *, uint64_t);
 void storageInit(struct ParamStorage *, struct Interface *, uint32_t);
 bool storageLoad(struct ParamStorage *);
 bool storageSave(struct ParamStorage *);
+
+END_DECLS
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_PARAM_STORAGE_H_ */

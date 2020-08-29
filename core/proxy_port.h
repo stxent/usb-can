@@ -42,7 +42,11 @@ struct ProxyHub
   struct ProxyPort ports[];
 };
 /*----------------------------------------------------------------------------*/
+BEGIN_DECLS
+
 struct ProxyHub *makeProxyHub(size_t);
 void proxyPortInit(struct ProxyPort *, const struct ProxyPortConfig *);
+
+END_DECLS
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_PROXY_PORT_H_ */
