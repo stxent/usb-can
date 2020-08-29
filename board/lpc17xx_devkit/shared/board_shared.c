@@ -1,5 +1,5 @@
 /*
- * board_shared.c
+ * board/lpc17xx_devkit/shared/board_shared.c
  * Copyright (C) 2019 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
