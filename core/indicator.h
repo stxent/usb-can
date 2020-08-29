@@ -26,6 +26,8 @@ struct Indicator
   struct Entity base;
 };
 /*----------------------------------------------------------------------------*/
+BEGIN_DECLS
+
 static inline void indicatorIncrement(void *indicator)
 {
   ((const struct IndicatorClass *)CLASS(indicator))->increment(indicator);
@@ -45,5 +47,7 @@ static inline void indicatorSpin(void *indicator)
 {
   ((const struct IndicatorClass *)CLASS(indicator))->spin(indicator);
 }
+
+END_DECLS
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_INDICATOR_H_ */

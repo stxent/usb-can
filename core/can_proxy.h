@@ -44,6 +44,10 @@ struct CanProxyConfig
   struct ParamStorage *storage;
 };
 /*----------------------------------------------------------------------------*/
+BEGIN_DECLS
+
 void proxySetCallback(struct CanProxy *, ProxyCallback, void *);
+
+END_DECLS
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_CAN_PROXY_H_ */

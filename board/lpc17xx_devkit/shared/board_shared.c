@@ -135,15 +135,15 @@ struct Entity *boardSetupUsb(const struct SerialNumber *number)
   usbDevStringAppend(usb, usbStringBuild(customStringHeader, 0,
       USB_STRING_HEADER));
 
-  if (strlen(usbVendorString()) > 0)
+  if (strlen(getUsbVendorString()) > 0)
   {
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
-        usbVendorString(), USB_STRING_VENDOR));
+        getUsbVendorString(), USB_STRING_VENDOR));
   }
-  if (strlen(usbProductString()) > 0)
+  if (strlen(getUsbProductString()) > 0)
   {
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
-        usbProductString(), USB_STRING_PRODUCT));
+        getUsbProductString(), USB_STRING_PRODUCT));
   }
   if (number && strlen(number->value) > 0)
   {

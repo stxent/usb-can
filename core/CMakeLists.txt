@@ -3,7 +3,8 @@
 
 # Find source files
 file(GLOB_RECURSE CORE_SOURCES "*.c")
+
+# Core package
 add_library(core OBJECT ${CORE_SOURCES})
-target_compile_definitions(core PRIVATE -D${PLATFORM})
 target_include_directories(core PRIVATE ${PROJECT_BINARY_DIR})
-target_link_libraries(core PUBLIC halm xcore)
+target_link_libraries(core PRIVATE halm)

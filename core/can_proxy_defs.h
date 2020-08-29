@@ -46,11 +46,15 @@ struct PackedNumber16
 #define SERIALIZED_FRAME_MTU  sizeof(struct PackedExtFrame)
 #define SERIALIZED_QUEUE_SIZE 2
 /*----------------------------------------------------------------------------*/
+BEGIN_DECLS
+
 uint32_t calcFrameLength(uint8_t, size_t);
 size_t packExtFrame(void *, const struct CanMessage *);
 size_t packStdFrame(void *, const struct CanMessage *);
 size_t packNumber16(void *, uint16_t);
 bool unpackExtFrame(const void *, size_t, struct CanStandardMessage *);
 bool unpackStdFrame(const void *, size_t, struct CanStandardMessage *);
+
+END_DECLS
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_CAN_PROXY_DEFS_H_ */
