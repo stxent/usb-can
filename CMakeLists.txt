@@ -26,25 +26,22 @@ endif()
 # Configure XCORE library
 add_subdirectory(libs/xcore xcore)
 
-# Configure HALM library, CONFIG_FILE should be defined
+# Configure HALM library, HALM_CONFIG_FILE should be defined
 set(HALM_CONFIG_FILE "${PROJECT_SOURCE_DIR}/board/${BOARD}/halm.config" CACHE INTERNAL "Path to the library configuration file" FORCE)
 add_subdirectory(libs/halm halm)
 
 add_subdirectory(core)
 add_subdirectory(board)
 
-# set(CMAKE_EXECUTABLE_SUFFIX ".elf")
-add_executable("application.elf" $<TARGET_OBJECTS:core> $<TARGET_OBJECTS:application>)
-target_include_directories(application PRIVATE core)
-target_link_libraries("application.elf" PRIVATE core application)
+add_executable("application.elf" $<TARGET_OBJECTS:application>)
+target_link_libraries("application.elf" PRIVATE application)
 add_custom_command(TARGET "application.elf"
         POST_BUILD
         COMMAND "${CMAKE_OBJCOPY}" "application.elf" -Obinary "application.bin"
 )
 
-add_executable("bootloader.elf" $<TARGET_OBJECTS:core> $<TARGET_OBJECTS:bootloader>)
-target_include_directories(bootloader PRIVATE core)
-target_link_libraries("bootloader.elf" PRIVATE core bootloader)
+add_executable("bootloader.elf" $<TARGET_OBJECTS:bootloader>)
+target_link_libraries("bootloader.elf" PRIVATE bootloader)
 add_custom_command(TARGET "bootloader.elf"
         POST_BUILD
         COMMAND "${CMAKE_OBJCOPY}" "bootloader.elf" -Oihex "bootloader.hex"

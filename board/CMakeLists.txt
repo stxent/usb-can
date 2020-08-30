@@ -12,7 +12,7 @@ add_subdirectory("${BOARD}")
 set(FLAGS_LINKER "--specs=nosys.specs --specs=nano.specs -Wl,--gc-sections")
 
 # Generate version file
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(GetGitRevisionDescription)
 
 git_describe(_version_sw_tag --abbrev=0 --tags)
@@ -28,12 +28,17 @@ file(GLOB_RECURSE BOOTLOADER_SOURCES "${BOARD}/bootloader/*.c")
 file(GLOB_RECURSE SHARED_SOURCES "${BOARD}/shared/*.c")
 list(APPEND SHARED_SOURCES "${PROJECT_BINARY_DIR}/version.c")
 
+# Shared package
+add_library(shared ${SHARED_SOURCES})
+target_include_directories(shared PUBLIC "${BOARD}/shared")
+target_link_libraries(shared PUBLIC core)
+
 # Main application package
-add_library(application OBJECT ${SHARED_SOURCES} ${APPLICATION_SOURCES})
-target_include_directories(application PRIVATE "${BOARD}/application" "${BOARD}/shared")
-target_link_libraries(application PRIVATE halm ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/application.ld")
+add_library(application OBJECT ${APPLICATION_SOURCES})
+target_include_directories(application PRIVATE "${BOARD}/application")
+target_link_libraries(application PRIVATE shared ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/application.ld")
 
 # Bootloader package
-add_library(bootloader OBJECT ${SHARED_SOURCES} ${BOOTLOADER_SOURCES})
-target_include_directories(bootloader PRIVATE "${BOARD}/bootloader" "${BOARD}/shared")
-target_link_libraries(bootloader PRIVATE halm ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/bootloader.ld")
+add_library(bootloader OBJECT ${BOOTLOADER_SOURCES})
+target_include_directories(bootloader PRIVATE "${BOARD}/bootloader")
+target_link_libraries(bootloader PRIVATE shared ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/bootloader.ld")
