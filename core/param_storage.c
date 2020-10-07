@@ -4,10 +4,10 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <string.h>
-#include <xcore/crc/crc32.h>
 #include "helpers.h"
 #include "param_storage.h"
+#include <xcore/crc/crc32.h>
+#include <string.h>
 /*----------------------------------------------------------------------------*/
 void makeSerialNumber(struct SerialNumber *output, uint64_t input)
 {

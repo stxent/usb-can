@@ -7,8 +7,8 @@
 #ifndef CORE_VERSION_H_
 #define CORE_VERSION_H_
 /*----------------------------------------------------------------------------*/
-#include <stdint.h>
 #include <xcore/helpers.h>
+#include <stdint.h>
 /*----------------------------------------------------------------------------*/
 struct BoardVersion
 {

@@ -7,9 +7,9 @@
 #ifndef CORE_PARAM_STORAGE_H_
 #define CORE_PARAM_STORAGE_H_
 /*----------------------------------------------------------------------------*/
+#include <xcore/interface.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <xcore/interface.h>
 /*----------------------------------------------------------------------------*/
 struct SerialNumber
 {

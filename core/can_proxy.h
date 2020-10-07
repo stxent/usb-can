@@ -7,9 +7,9 @@
 #ifndef CORE_CAN_PROXY_H_
 #define CORE_CAN_PROXY_H_
 /*----------------------------------------------------------------------------*/
+#include "param_storage.h"
 #include <halm/timer.h>
 #include <xcore/interface.h>
-#include "param_storage.h"
 /*----------------------------------------------------------------------------*/
 extern const struct EntityClass * const CanProxy;
 

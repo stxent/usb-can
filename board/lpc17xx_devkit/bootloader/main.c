@@ -4,7 +4,8 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <assert.h>
+#include "board_shared.h"
+#include <dpm/drivers/usb/dfu_bridge.h>
 #include <halm/core/cortex/nvic.h>
 #include <halm/generic/work_queue.h>
 #include <halm/pin.h>
@@ -13,12 +14,10 @@
 #include <halm/platform/nxp/gptimer.h>
 #include <halm/platform/nxp/lpc17xx/system_defs.h>
 #include <halm/usb/dfu.h>
-#include "board_shared.h"
-#include "flash_loader.h"
+#include <assert.h>
 /*----------------------------------------------------------------------------*/
-#define MAGIC_WORD      0x3A84508FUL
-#define TRANSFER_SIZE   128
-#define WORK_QUEUE_SIZE 2
+#define MAGIC_WORD    0x3A84508FUL
+#define TRANSFER_SIZE 128
 /*----------------------------------------------------------------------------*/
 static void clearResetRequest(void);
 static bool isBootloaderRequested(void);
@@ -42,6 +41,10 @@ static const struct FlashGeometry geometry[] = {
         /* End of the list */
         0, 0, 0
     }
+};
+
+static const struct WorkQueueConfig workQueueConfig = {
+    .size = 2
 };
 /*----------------------------------------------------------------------------*/
 static const PinNumber ledPinNumber = PIN(1, 10);
@@ -118,22 +121,24 @@ int main(void)
   struct Dfu * const dfu = init(Dfu, &dfuConfig);
   assert(dfu);
 
-  const struct FlashLoaderConfig loaderConfig = {
+  const struct DfuBridgeConfig bridgeConfig = {
       .geometry = geometry,
       .flash = flash,
       .device = dfu,
       .offset = (size_t)&_firmware,
       .reset = onResetRequest
   };
-  struct FlashLoader * const loader = init(FlashLoader, &loaderConfig);
-  assert(loader);
-  (void)loader;
-
-  usbDevSetConnected(usb, true);
+  struct DfuBridge * const bridge = init(DfuBridge, &bridgeConfig);
+  assert(bridge);
+  (void)bridge;
 
   /* Initialize and start Work Queue */
-  workQueueInit(WORK_QUEUE_SIZE);
-  workQueueStart(0);
+  WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
+  assert(WQ_DEFAULT);
+
+  /* Start USB enumeration and event loop */
+  usbDevSetConnected(usb, true);
+  wqStart(WQ_DEFAULT);
 
   return 0;
 }

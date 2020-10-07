@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <xcore/helpers.h>
 /*----------------------------------------------------------------------------*/
 struct CanMessage;
 struct CanStandardMessage;

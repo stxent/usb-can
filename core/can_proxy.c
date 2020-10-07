@@ -4,18 +4,18 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <assert.h>
-#include <string.h>
-#include <halm/generic/can.h>
-#include <halm/generic/work_queue.h>
-#include <halm/timer.h>
-#include <xcore/interface.h>
 #include "can_proxy.h"
 #include "can_proxy_defs.h"
 #include "helpers.h"
 #include "indicator.h"
 #include "system.h"
 #include "version.h"
+#include <halm/generic/can.h>
+#include <halm/generic/work_queue.h>
+#include <halm/timer.h>
+#include <xcore/interface.h>
+#include <assert.h>
+#include <string.h>
 /*----------------------------------------------------------------------------*/
 struct CanProxy
 {
@@ -468,7 +468,7 @@ static void onCanEventCallback(void *argument)
   if (!proxy->canEvent)
   {
     proxy->canEvent = true;
-    workQueueAdd(handleCanEvent, argument);
+    wqAdd(WQ_DEFAULT, handleCanEvent, argument);
   }
 }
 /*----------------------------------------------------------------------------*/
@@ -482,7 +482,7 @@ static void onSerialEventCallback(void *argument)
     if (level && !proxy->serialEvent)
     {
       proxy->serialEvent = true;
-      workQueueAdd(handleSerialEvent, argument);
+      wqAdd(WQ_DEFAULT, handleSerialEvent, argument);
     }
   }
 }

@@ -7,8 +7,8 @@
 #ifndef BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_
 #define BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_
 /*----------------------------------------------------------------------------*/
-#include <xcore/interface.h>
 #include "param_storage.h"
+#include <xcore/interface.h>
 /*----------------------------------------------------------------------------*/
 void boardSetupClock(void);
 struct Interface *boardSetupEeprom(struct Interface *);

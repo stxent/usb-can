@@ -7,10 +7,10 @@
 #ifndef BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_
 #define BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_
 /*----------------------------------------------------------------------------*/
-#include <halm/timer.h>
-#include <xcore/interface.h>
 #include "param_storage.h"
 #include "proxy_port.h"
+#include <halm/timer.h>
+#include <xcore/interface.h>
 /*----------------------------------------------------------------------------*/
 struct Board
 {
