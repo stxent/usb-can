@@ -30,6 +30,9 @@ add_subdirectory(libs/xcore xcore)
 set(HALM_CONFIG_FILE "${PROJECT_SOURCE_DIR}/board/${BOARD}/halm.config" CACHE INTERNAL "Path to the library configuration file" FORCE)
 add_subdirectory(libs/halm halm)
 
+# Configure DPM library
+add_subdirectory(libs/dpm dpm)
+
 add_subdirectory(core)
 add_subdirectory(board)
 

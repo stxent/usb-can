@@ -8,6 +8,7 @@
 #define CORE_EEPROM_24XX_H_
 /*----------------------------------------------------------------------------*/
 #include <xcore/interface.h>
+#include <stdint.h>
 /*----------------------------------------------------------------------------*/
 extern const struct InterfaceClass * const Eeprom24xx;
 

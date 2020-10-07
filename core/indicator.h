@@ -7,8 +7,8 @@
 #ifndef CORE_INDICATOR_H_
 #define CORE_INDICATOR_H_
 /*----------------------------------------------------------------------------*/
-#include <stdbool.h>
 #include "can_proxy.h"
+#include <stdbool.h>
 /*----------------------------------------------------------------------------*/
 /* Class descriptor */
 struct IndicatorClass

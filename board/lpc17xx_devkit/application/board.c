@@ -4,17 +4,17 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <assert.h>
-#include <halm/core/cortex/systick.h>
-#include <halm/pin.h>
-#include <halm/platform/nxp/can.h>
-#include <halm/platform/nxp/gptimer.h>
-#include <halm/usb/cdc_acm.h>
 #include "board.h"
 #include "board_shared.h"
 #include "helpers.h"
 #include "led_indicator.h"
 #include "version.h"
+#include <halm/core/cortex/systick.h>
+#include <halm/pin.h>
+#include <halm/platform/nxp/can.h>
+#include <halm/platform/nxp/gptimer.h>
+#include <halm/usb/cdc_acm.h>
+#include <assert.h>
 /*----------------------------------------------------------------------------*/
 #define EVENT_RATE 50
 #define MAX_BLINKS 16

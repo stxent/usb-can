@@ -4,10 +4,10 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <assert.h>
-#include <stdlib.h>
 #include "indicator.h"
 #include "proxy_port.h"
+#include <assert.h>
+#include <stdlib.h>
 /*----------------------------------------------------------------------------*/
 static void onProxyEvent(void *, enum CanProxyMode, enum CanProxyEvent);
 /*----------------------------------------------------------------------------*/

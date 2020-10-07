@@ -4,13 +4,13 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
+#include "eeprom_24xx.h"
 #include <halm/delay.h> // XXX
 #include <xcore/accel.h>
 #include <xcore/bits.h>
-#include "eeprom_24xx.h"
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 /*----------------------------------------------------------------------------*/
 #define WRITE_CYCLE_TIME 5
 /*----------------------------------------------------------------------------*/
@@ -20,7 +20,6 @@ static uint16_t makeSlaveAddress(const struct Eeprom24xx *, uint32_t);
 /*----------------------------------------------------------------------------*/
 static enum Result memoryInit(void *, const void *);
 static void memoryDeinit(void *);
-static enum Result memorySetCallback(void *, void (*)(void *), void *);
 static enum Result memoryGetParam(void *, enum IfParameter, void *);
 static enum Result memorySetParam(void *, enum IfParameter, const void *);
 static size_t memoryRead(void *, void *, size_t);
@@ -31,7 +30,7 @@ const struct InterfaceClass * const Eeprom24xx = &(const struct InterfaceClass){
     .init = memoryInit,
     .deinit = memoryDeinit,
 
-    .setCallback = memorySetCallback,
+    .setCallback = 0,
     .getParam = memoryGetParam,
     .setParam = memorySetParam,
     .read = memoryRead,
@@ -94,13 +93,6 @@ static void memoryDeinit(void *object)
 {
   struct Eeprom24xx * const memory = object;
   free(memory->buffer);
-}
-/*----------------------------------------------------------------------------*/
-static enum Result memorySetCallback(void *object __attribute__((unused)),
-    void (*callback)(void *) __attribute__((unused)),
-    void *argument __attribute__((unused)))
-{
-  return E_INVALID;
 }
 /*----------------------------------------------------------------------------*/
 static enum Result memoryGetParam(void *object, enum IfParameter parameter,

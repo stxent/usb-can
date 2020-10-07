@@ -4,14 +4,18 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <halm/generic/work_queue.h>
 #include "board.h"
 #include "board_shared.h"
+#include <halm/generic/work_queue.h>
+#include <assert.h>
 /*----------------------------------------------------------------------------*/
-#define WORK_QUEUE_SIZE  2
 #define EVENT_ITERATIONS 25
 /*----------------------------------------------------------------------------*/
 static struct Board board;
+/*----------------------------------------------------------------------------*/
+static const struct WorkQueueConfig workQueueConfig = {
+    .size = 2
+};
 /*----------------------------------------------------------------------------*/
 static void onTimerEventCallback(void *argument)
 {
@@ -54,8 +58,11 @@ int main(void)
   timerSetCallback(board.eventTimer, onTimerEventCallback, board.hub);
   boardStart(&board);
 
-  workQueueInit(WORK_QUEUE_SIZE);
-  workQueueStart(0);
+  /* Initialize and start Work Queue */
+  WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
+  assert(WQ_DEFAULT);
 
+  /* Start event loop */
+  wqStart(WQ_DEFAULT);
   return 0;
 }

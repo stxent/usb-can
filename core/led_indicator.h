@@ -7,8 +7,8 @@
 #ifndef CORE_LED_INDICATOR_H_
 #define CORE_LED_INDICATOR_H_
 /*----------------------------------------------------------------------------*/
-#include <halm/pin.h>
 #include "indicator.h"
+#include <halm/pin.h>
 /*----------------------------------------------------------------------------*/
 extern const struct IndicatorClass * const LedIndicator;
 

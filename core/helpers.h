@@ -7,8 +7,8 @@
 #ifndef CORE_HELPERS_H_
 #define CORE_HELPERS_H_
 /*----------------------------------------------------------------------------*/
-#include <string.h>
 #include <xcore/memory.h>
+#include <string.h>
 /*----------------------------------------------------------------------------*/
 static inline uint8_t binToHex(uint8_t value)
 {

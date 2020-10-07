@@ -4,16 +4,16 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <assert.h>
-#include <string.h>
+#include "board_shared.h"
+#include "eeprom_24xx.h"
+#include "version.h"
 #include <halm/platform/nxp/i2c.h>
 #include <halm/platform/nxp/lpc17xx/clocking.h>
 #include <halm/platform/nxp/usb_device.h>
 #include <halm/usb/usb_string.h>
 #include <halm/usb/usb.h>
-#include "board_shared.h"
-#include "eeprom_24xx.h"
-#include "version.h"
+#include <assert.h>
+#include <string.h>
 /*----------------------------------------------------------------------------*/
 static void customStringHeader(const void *, enum UsbLangId,
     struct UsbDescriptor *, void *);

@@ -4,8 +4,8 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <assert.h>
 #include "led_indicator.h"
+#include <assert.h>
 /*----------------------------------------------------------------------------*/
 static enum Result indInit(void *, const void *);
 static void indIncrement(void *);

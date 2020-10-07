@@ -4,9 +4,9 @@
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#include <halm/generic/can.h>
 #include "can_proxy_defs.h"
 #include "helpers.h"
+#include <halm/generic/can.h>
 /*----------------------------------------------------------------------------*/
 uint32_t calcFrameLength(uint8_t flags, size_t dlc)
 {
