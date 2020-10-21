@@ -501,8 +501,8 @@ static enum Result proxyInit(void *object, const void *configBase)
   proxy->chrono = config->chrono;
   proxy->storage = config->storage;
 
-  proxy->callback = mockEventHandler;
-  proxy->argument = 0;
+  proxy->callback = config->callback ? config->callback : mockEventHandler;
+  proxy->argument = config->argument;
   proxy->mode = SLCAN_MODE_DISABLED;
   proxy->parser.position = 0;
   proxy->parser.skip = false;
@@ -521,19 +521,4 @@ static void proxyDeinit(void *object)
 
   ifSetCallback(proxy->serial, 0, 0);
   ifSetCallback(proxy->can, 0, 0);
-}
-/*----------------------------------------------------------------------------*/
-void proxySetCallback(struct CanProxy *proxy, ProxyCallback callback,
-    void *argument)
-{
-  if (callback)
-  {
-    proxy->callback = callback;
-    proxy->argument = argument;
-  }
-  else
-  {
-    proxy->callback = mockEventHandler;
-    proxy->argument = 0;
-  }
 }
