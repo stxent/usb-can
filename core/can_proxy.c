@@ -44,8 +44,8 @@ struct CanProxy
 /*----------------------------------------------------------------------------*/
 static void changePortMode(struct CanProxy *, enum CanProxyMode);
 static bool deserializeFrame(struct CanProxy *, const uint8_t *, size_t);
-static void serializeFrames(struct CanProxy *, const struct CanMessage *,
-    size_t);
+static void serializeFrames(struct CanProxy *,
+    const struct CanStandardMessage *, size_t);
 static void handleCanEvent(void *);
 static void handleSerialEvent(void *);
 static void mockEventHandler(void *, enum CanProxyMode, enum CanProxyEvent);
@@ -122,7 +122,7 @@ static bool deserializeFrame(struct CanProxy *proxy, const uint8_t *request,
 }
 /*----------------------------------------------------------------------------*/
 static void serializeFrames(struct CanProxy *proxy,
-    const struct CanMessage *frames, size_t count)
+    const struct CanStandardMessage *frames, size_t count)
 {
   uint8_t response[SERIALIZED_QUEUE_SIZE * SERIALIZED_FRAME_MTU];
   size_t index = 0;
@@ -130,7 +130,8 @@ static void serializeFrames(struct CanProxy *proxy,
 
   while (index < count)
   {
-    const struct CanMessage * const frame = &frames[index++];
+    const struct CanMessage * const frame =
+        (const struct CanMessage *)&frames[index++];
     size_t (*serializer)(void *, const struct CanMessage *) =
         (frame->flags & CAN_EXT_ID) ? packExtFrame : packStdFrame;
 
@@ -153,7 +154,7 @@ static void handleCanEvent(void *argument)
 
   while ((bytesRead = ifRead(proxy->can, rxMessages, sizeof(rxMessages))) > 0)
   {
-    serializeFrames(proxy, (const struct CanMessage *)&rxMessages,
+    serializeFrames(proxy, rxMessages,
         bytesRead / sizeof(struct CanStandardMessage));
   }
 }
