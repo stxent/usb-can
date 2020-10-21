@@ -132,7 +132,7 @@ int main(void)
   assert(bridge);
   (void)bridge;
 
-  /* Initialize and start Work Queue */
+  /* Initialize Work Queue */
   WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
   assert(WQ_DEFAULT);
 

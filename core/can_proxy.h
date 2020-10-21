@@ -34,20 +34,15 @@ enum CanProxyMode
 
 typedef void (*ProxyCallback)(void *, enum CanProxyMode, enum CanProxyEvent);
 
-struct CanProxy;
-
 struct CanProxyConfig
 {
   struct Interface *can;
   struct Interface *serial;
   struct Timer *chrono;
   struct ParamStorage *storage;
+
+  ProxyCallback callback;
+  void *argument;
 };
-/*----------------------------------------------------------------------------*/
-BEGIN_DECLS
-
-void proxySetCallback(struct CanProxy *, ProxyCallback, void *);
-
-END_DECLS
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_CAN_PROXY_H_ */

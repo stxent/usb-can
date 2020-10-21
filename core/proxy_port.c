@@ -41,22 +41,33 @@ struct ProxyHub *makeProxyHub(size_t size)
   return hub;
 }
 /*----------------------------------------------------------------------------*/
-void proxyPortInit(struct ProxyPort *port, const struct ProxyPortConfig *config)
+void proxyPortDeinit(struct ProxyPort *port)
+{
+  deinit(port->proxy);
+}
+/*----------------------------------------------------------------------------*/
+void proxyPortInitTemplate(struct ProxyPort *port,
+    const struct ProxyPortConfig *config, const struct EntityClass *type)
 {
   const struct CanProxyConfig proxyConfig = {
       .can = config->can,
       .serial = config->serial,
       .chrono = config->chrono,
-      .storage = config->storage
+      .storage = config->storage,
+      .callback = onProxyEvent,
+      .argument = port
   };
-  struct CanProxy * const proxy = init(CanProxy, &proxyConfig);
-  assert(proxy);
 
-  port->proxy = proxy;
   port->error = config->error;
   port->status = config->status;
   port->mode.current = SLCAN_MODE_DISABLED;
   port->mode.next = SLCAN_MODE_DISABLED;
 
-  proxySetCallback(proxy, onProxyEvent, port);
+  port->proxy = init(type, &proxyConfig);
+  assert(port->proxy);
+}
+/*----------------------------------------------------------------------------*/
+void proxyPortInit(struct ProxyPort *port, const struct ProxyPortConfig *config)
+{
+  proxyPortInitTemplate(port, config, CanProxy);
 }

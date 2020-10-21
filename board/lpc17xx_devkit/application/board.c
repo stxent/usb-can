@@ -9,6 +9,7 @@
 #include "helpers.h"
 #include "led_indicator.h"
 #include "version.h"
+#include <halm/core/cortex/nvic.h>
 #include <halm/core/cortex/systick.h>
 #include <halm/pin.h>
 #include <halm/platform/nxp/can.h>
@@ -122,4 +123,9 @@ void boardStart(struct Board *board)
 {
   usbDevSetConnected(board->usb, true);
   timerEnable(board->eventTimer);
+}
+/*----------------------------------------------------------------------------*/
+void resetToBootloader(void)
+{
+  nvicResetCore();
 }

@@ -61,8 +61,7 @@ int main(void)
   /* Initialize and start Work Queue */
   WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
   assert(WQ_DEFAULT);
-
-  /* Start event loop */
   wqStart(WQ_DEFAULT);
+
   return 0;
 }
