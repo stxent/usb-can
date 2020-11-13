@@ -20,8 +20,8 @@ static uint16_t makeSlaveAddress(const struct Eeprom24xx *, uint32_t);
 /*----------------------------------------------------------------------------*/
 static enum Result memoryInit(void *, const void *);
 static void memoryDeinit(void *);
-static enum Result memoryGetParam(void *, enum IfParameter, void *);
-static enum Result memorySetParam(void *, enum IfParameter, const void *);
+static enum Result memoryGetParam(void *, int, void *);
+static enum Result memorySetParam(void *, int, const void *);
 static size_t memoryRead(void *, void *, size_t);
 static size_t memoryWrite(void *, const void *, size_t);
 /*----------------------------------------------------------------------------*/
@@ -95,12 +95,11 @@ static void memoryDeinit(void *object)
   free(memory->buffer);
 }
 /*----------------------------------------------------------------------------*/
-static enum Result memoryGetParam(void *object, enum IfParameter parameter,
-    void *data)
+static enum Result memoryGetParam(void *object, int parameter, void *data)
 {
   struct Eeprom24xx * const memory = object;
 
-  switch (parameter)
+  switch ((enum IfParameter)parameter)
   {
     case IF_POSITION:
       *(uint32_t *)data = memory->position;
@@ -115,12 +114,11 @@ static enum Result memoryGetParam(void *object, enum IfParameter parameter,
   }
 }
 /*----------------------------------------------------------------------------*/
-static enum Result memorySetParam(void *object, enum IfParameter parameter,
-    const void *data)
+static enum Result memorySetParam(void *object, int parameter, const void *data)
 {
   struct Eeprom24xx * const memory = object;
 
-  switch (parameter)
+  switch ((enum IfParameter)parameter)
   {
     case IF_POSITION:
     {
