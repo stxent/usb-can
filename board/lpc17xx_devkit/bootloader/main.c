@@ -31,13 +31,11 @@ static const struct FlashGeometry geometry[] = {
         .count = 16,
         .size = 4096,
         .time = 100
-    },
-    {
+    }, {
         .count = 14,
         .size = 32768,
         .time = 100
-    },
-    {
+    }, {
         /* End of the list */
         0, 0, 0
     }
