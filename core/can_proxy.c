@@ -34,7 +34,7 @@ struct CanProxy
   struct
   {
     size_t position;
-    uint8_t arena[SERIALIZED_FRAME_MTU + 1];
+    char arena[SERIALIZED_FRAME_MTU + 1];
     bool skip;
   } parser;
 
@@ -42,21 +42,23 @@ struct CanProxy
   bool serialEvent;
 };
 /*----------------------------------------------------------------------------*/
+static void canToSerial(struct CanProxy *);
 static void changePortMode(struct CanProxy *, enum CanProxyMode);
-static bool deserializeFrame(struct CanProxy *, const uint8_t *, size_t);
-static void serializeFrames(struct CanProxy *,
-    const struct CanStandardMessage *, size_t);
+static bool deserializeFrame(struct CanProxy *, const char *, size_t);
 static void handleCanEvent(void *);
 static void handleSerialEvent(void *);
 static void mockEventHandler(void *, enum CanProxyMode, enum CanProxyEvent);
-static size_t processMessage(struct CanProxy *, const uint8_t *, size_t,
-    char *);
-static bool sendMessageGroup(struct CanProxy *, uint8_t, size_t, size_t);
-static bool sendTestMessages(struct CanProxy *, const uint8_t *, size_t);
-static bool setCustomRate(struct CanProxy *, const uint8_t *);
-static bool setPredefinedRate(struct CanProxy *, const uint8_t *);
 static void onCanEventCallback(void *);
 static void onSerialEventCallback(void *);
+static size_t processCommand(struct CanProxy *, const char *, size_t,
+    char *);
+static void readSerialInput(struct CanProxy *);
+static bool sendMessageGroup(struct CanProxy *, uint8_t, size_t, size_t);
+static bool sendTestMessages(struct CanProxy *, const char *, size_t);
+static void serializeFrames(struct CanProxy *,
+    const struct CANStandardMessage *, size_t);
+static bool setCustomRate(struct CanProxy *, const char *);
+static bool setPredefinedRate(struct CanProxy *, const char *);
 /*----------------------------------------------------------------------------*/
 static enum Result proxyInit(void *, const void *);
 static void proxyDeinit(void *);
@@ -66,6 +68,26 @@ const struct EntityClass * const CanProxy = &(const struct EntityClass){
     .init = proxyInit,
     .deinit = proxyDeinit
 };
+/*----------------------------------------------------------------------------*/
+static void canToSerial(struct CanProxy *proxy)
+{
+  struct CANStandardMessage frames[SERIALIZED_QUEUE_SIZE];
+  size_t capacity;
+
+  ifGetParam(proxy->serial, IF_TX_AVAILABLE, &capacity);
+  capacity /= SERIALIZED_FRAME_MTU;
+  capacity = MIN(capacity, SERIALIZED_QUEUE_SIZE);
+
+  if (capacity > 0)
+  {
+    const size_t count = ifRead(proxy->can, frames, sizeof(frames));
+
+    if (count > 0)
+    {
+      serializeFrames(proxy, frames, count / sizeof(struct CANStandardMessage));
+    }
+  }
+}
 /*----------------------------------------------------------------------------*/
 static void changePortMode(struct CanProxy *proxy, enum CanProxyMode mode)
 {
@@ -88,31 +110,29 @@ static void changePortMode(struct CanProxy *proxy, enum CanProxyMode mode)
   proxy->callback(proxy->argument, mode, SLCAN_EVENT_NONE);
 }
 /*----------------------------------------------------------------------------*/
-static bool deserializeFrame(struct CanProxy *proxy, const uint8_t *request,
+static bool deserializeFrame(struct CanProxy *proxy, const char *request,
     size_t length)
 {
-  struct CanStandardMessage message;
-  bool converted;
+  size_t available;
 
-  if (request[0] == 'T' || request[0] == 'R')
-  {
-    converted = unpackExtFrame(request, length, &message);
-  }
-  else
-  {
-    converted = unpackStdFrame(request, length, &message);
-  }
+  ifGetParam(proxy->serial, IF_TX_AVAILABLE, &available);
 
-  if (!converted)
+  if (available > 0)
   {
-    proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_SERIAL_ERROR);
-    return false;
-  }
+    struct CANStandardMessage message;
 
-  if (ifWrite(proxy->can, &message, sizeof(message)) == sizeof(message))
-  {
-    proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_TX);
-    return true;
+    if (unpackFrame(request, length, &message))
+    {
+      ifWrite(proxy->can, &message, sizeof(message));
+
+      proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_TX);
+      return true;
+    }
+    else
+    {
+      proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_SERIAL_ERROR);
+      return false;
+    }
   }
   else
   {
@@ -121,57 +141,232 @@ static bool deserializeFrame(struct CanProxy *proxy, const uint8_t *request,
   }
 }
 /*----------------------------------------------------------------------------*/
-static void serializeFrames(struct CanProxy *proxy,
-    const struct CanStandardMessage *frames, size_t count)
-{
-  uint8_t response[SERIALIZED_QUEUE_SIZE * SERIALIZED_FRAME_MTU];
-  size_t index = 0;
-  size_t length = 0;
-
-  while (index < count)
-  {
-    const struct CanMessage * const frame =
-        (const struct CanMessage *)&frames[index++];
-    size_t (*serializer)(void *, const struct CanMessage *) =
-        (frame->flags & CAN_EXT_ID) ? packExtFrame : packStdFrame;
-
-    length += serializer(response + length, frame);
-  }
-
-  const size_t written = ifWrite(proxy->serial, response, length);
-
-  proxy->callback(proxy->argument, proxy->mode, written == length ?
-      SLCAN_EVENT_RX : SLCAN_EVENT_SERIAL_OVERRUN);
-}
-/*----------------------------------------------------------------------------*/
 static void handleCanEvent(void *argument)
 {
   struct CanProxy * const proxy = argument;
+  size_t rxAvailable;
+
   proxy->canEvent = false;
+  ifGetParam(proxy->can, IF_RX_AVAILABLE, &rxAvailable);
 
-  struct CanStandardMessage rxMessages[SERIALIZED_QUEUE_SIZE];
-  size_t bytesRead;
-
-  while ((bytesRead = ifRead(proxy->can, rxMessages, sizeof(rxMessages))) > 0)
+  if (rxAvailable > 0)
   {
-    serializeFrames(proxy, rxMessages,
-        bytesRead / sizeof(struct CanStandardMessage));
+    canToSerial(proxy);
   }
 }
 /*----------------------------------------------------------------------------*/
 static void handleSerialEvent(void *argument)
 {
   struct CanProxy * const proxy = argument;
+  size_t rxAvailable;
+  size_t txAvailable;
+
   proxy->serialEvent = false;
+  ifGetParam(proxy->serial, IF_RX_AVAILABLE, &rxAvailable);
+  ifGetParam(proxy->serial, IF_TX_AVAILABLE, &txAvailable);
 
-  size_t rxLength;
-  uint8_t rxBuffer[64];
-
-  while ((rxLength = ifRead(proxy->serial, rxBuffer, sizeof(rxBuffer))) > 0)
+  if (rxAvailable > 0)
   {
-    for (size_t index = 0; index < rxLength; ++index)
+    readSerialInput(proxy);
+  }
+
+  if (txAvailable > 0)
+  {
+    canToSerial(proxy);
+  }
+}
+/*----------------------------------------------------------------------------*/
+static void mockEventHandler(void *argument, enum CanProxyMode mode,
+    enum CanProxyEvent event)
+{
+  (void)argument;
+  (void)mode;
+  (void)event;
+}
+/*----------------------------------------------------------------------------*/
+static void onCanEventCallback(void *argument)
+{
+  struct CanProxy * const proxy = argument;
+
+  if (!proxy->canEvent)
+  {
+    if (wqAdd(WQ_DEFAULT, handleCanEvent, argument) == E_OK)
+      proxy->canEvent = true;
+  }
+}
+/*----------------------------------------------------------------------------*/
+static void onSerialEventCallback(void *argument)
+{
+  struct CanProxy * const proxy = argument;
+
+  if (!proxy->serialEvent)
+  {
+    if (wqAdd(WQ_DEFAULT, handleSerialEvent, argument) == E_OK)
+      proxy->serialEvent = true;
+  }
+}
+/*----------------------------------------------------------------------------*/
+static size_t processCommand(struct CanProxy *proxy, const char *request,
+    size_t length, char *response)
+{
+  if (!length)
+    return 0;
+
+  switch (request[0])
+  {
+    case 's':
     {
-      const uint8_t c = rxBuffer[index];
+      if (length >= 5 && length <= 7 && setCustomRate(proxy, request))
+        strcpy(response, "\r");
+      else
+        strcpy(response, "\a");
+      break;
+    }
+
+    case 'S':
+    {
+      if (length == 2 && setPredefinedRate(proxy, request))
+        strcpy(response, "\r");
+      else
+        strcpy(response, "\a");
+      break;
+    }
+
+    case 'r':
+    case 'R':
+    case 't':
+    case 'T':
+    {
+      if (deserializeFrame(proxy, request, length))
+        strcpy(response, "z\r");
+      else
+        strcpy(response, "\a");
+      break;
+    }
+
+    case 'O':
+    {
+      changePortMode(proxy, SLCAN_MODE_ACTIVE);
+      strcpy(response, "\r");
+      break;
+    }
+
+    case 'I':
+    {
+      changePortMode(proxy, SLCAN_MODE_LOOPBACK);
+      strcpy(response, "\r");
+      break;
+    }
+
+    case 'L':
+    {
+      changePortMode(proxy, SLCAN_MODE_LISTENER);
+      strcpy(response, "\r");
+      break;
+    }
+
+    case 'C':
+    {
+      changePortMode(proxy, SLCAN_MODE_DISABLED);
+      strcpy(response, "\r");
+      break;
+    }
+
+    case 'X':
+    {
+      if (sendTestMessages(proxy, request, length))
+        strcpy(response, "\r");
+      else
+        strcpy(response, "\a");
+      break;
+    }
+
+    case 'Z':
+    {
+      /* Enable or disable timestamping */
+      break;
+    }
+
+    case 'V':
+    {
+      /* Get hardware version */
+      const struct BoardVersion * const ver = getBoardVersion();
+      return packNumber16(response, (ver->hw.major << 8) | ver->hw.minor);
+    }
+
+    case 'v':
+    {
+      /* Get software version */
+      const struct BoardVersion * const ver = getBoardVersion();
+      return packNumber16(response, (ver->sw.major << 8) | ver->sw.minor);
+    }
+
+    case 'N':
+    {
+      /* Get the serial number */
+      if (!proxy->storage)
+        return packNumber16(response, 0xFFFF);
+      else
+        return packNumber16(response, (uint16_t)proxy->storage->values.serial);
+    }
+
+    case 'n':
+    {
+      /* Set the serial number */
+      if (length == 5 && proxy->storage &&
+          !isSerialNumberValid(proxy->storage->values.serial))
+      {
+        proxy->storage->values.serial = inPlaceHexToBin4(&request[1]);
+
+        if (storageSave(proxy->storage))
+          strcpy(response, "\r");
+        else
+          strcpy(response, "\a");
+      }
+      else
+        strcpy(response, "\a");
+      break;
+    }
+
+    case 'B':
+    {
+      resetToBootloader();
+      strcpy(response, "\a");
+      break;
+    }
+
+    case 'F':
+    {
+      strcpy(response, "z00\r");
+      break;
+    }
+
+    case 'W':
+    {
+      strcpy(response, "\r");
+      break;
+    }
+
+    default:
+    {
+      strcpy(response, "\a");
+      break;
+    }
+  }
+
+  return strlen(response);
+}
+/*----------------------------------------------------------------------------*/
+static void readSerialInput(struct CanProxy *proxy)
+{
+  char buffer[SERIAL_MTU];
+  size_t count;
+
+  while ((count = ifRead(proxy->serial, buffer, sizeof(buffer))) > 0)
+  {
+    for (size_t index = 0; index < count; ++index)
+    {
+      const char c = buffer[index];
 
       if (c == '\r' || c == '\n') /* New line */
       {
@@ -180,7 +375,7 @@ static void handleSerialEvent(void *argument)
           proxy->parser.arena[proxy->parser.position] = '\0';
 
           char response[RESPONSE_MTU];
-          const size_t responseLength = processMessage(proxy,
+          const size_t responseLength = processCommand(proxy,
               proxy->parser.arena, proxy->parser.position, response);
           const size_t writtenLength = ifWrite(proxy->serial,
               response, responseLength);
@@ -207,138 +402,6 @@ static void handleSerialEvent(void *argument)
   }
 }
 /*----------------------------------------------------------------------------*/
-static void mockEventHandler(void *argument, enum CanProxyMode mode,
-    enum CanProxyEvent event)
-{
-  (void)argument;
-  (void)mode;
-  (void)event;
-}
-/*----------------------------------------------------------------------------*/
-static size_t processMessage(struct CanProxy *proxy, const uint8_t *request,
-    size_t length, char *response)
-{
-  if (!length)
-    return 0;
-
-  switch (request[0])
-  {
-    case 's':
-      if (length >= 5 && length <= 7 && setCustomRate(proxy, request))
-        strcpy(response, "\r");
-      else
-        strcpy(response, "\a");
-      break;
-
-    case 'S':
-      if (length == 2 && setPredefinedRate(proxy, request))
-        strcpy(response, "\r");
-      else
-        strcpy(response, "\a");
-      break;
-
-    case 'r':
-    case 'R':
-    case 't':
-    case 'T':
-      if (deserializeFrame(proxy, request, length))
-        strcpy(response, "z\r");
-      else
-        strcpy(response, "\a");
-      break;
-
-    case 'O':
-      changePortMode(proxy, SLCAN_MODE_ACTIVE);
-      strcpy(response, "\r");
-      break;
-
-    case 'I':
-      changePortMode(proxy, SLCAN_MODE_LOOPBACK);
-      strcpy(response, "\r");
-      break;
-
-    case 'L':
-      changePortMode(proxy, SLCAN_MODE_LISTENER);
-      strcpy(response, "\r");
-      break;
-
-    case 'C':
-      changePortMode(proxy, SLCAN_MODE_DISABLED);
-      strcpy(response, "\r");
-      break;
-
-    case 'X':
-    {
-      if (sendTestMessages(proxy, request, length))
-        strcpy(response, "\r");
-      else
-        strcpy(response, "\a");
-    }
-
-    case 'Z':
-    {
-      /* Enable or disable timestamping */
-      break;
-    }
-
-    case 'V':
-    {
-      /* Get hardware version */
-      const struct BoardVersion * const ver = getBoardVersion();
-      return packNumber16(response, (ver->hw.major << 8) | ver->hw.minor);
-    }
-
-    case 'v':
-    {
-      /* Get software version */
-      const struct BoardVersion * const ver = getBoardVersion();
-      return packNumber16(response, (ver->sw.major << 8) | ver->sw.minor);
-    }
-
-    case 'N':
-      /* Get the serial number */
-      if (!proxy->storage)
-        return packNumber16(response, 0xFFFF);
-      else
-        return packNumber16(response, (uint16_t)proxy->storage->values.serial);
-
-    case 'n':
-      /* Set the serial number */
-      if (length == 5 && proxy->storage &&
-          !isSerialNumberValid(proxy->storage->values.serial))
-      {
-        proxy->storage->values.serial = inPlaceHexToBin4(&request[1]);
-
-        if (storageSave(proxy->storage))
-          strcpy(response, "\r");
-        else
-          strcpy(response, "\a");
-      }
-      else
-        strcpy(response, "\a");
-      break;
-
-    case 'B':
-      resetToBootloader();
-      strcpy(response, "\a");
-      break;
-
-    case 'F':
-      strcpy(response, "z00\r");
-      break;
-
-    case 'W':
-      strcpy(response, "\r");
-      break;
-
-    default:
-      strcpy(response, "\a");
-      break;
-  }
-
-  return strlen(response);
-}
-/*----------------------------------------------------------------------------*/
 static bool sendMessageGroup(struct CanProxy *proxy, uint8_t flags,
     size_t length, size_t count)
 {
@@ -355,7 +418,7 @@ static bool sendMessageGroup(struct CanProxy *proxy, uint8_t flags,
 
   for (size_t i = 0; i < count; ++i)
   {
-    const struct CanStandardMessage message = {
+    const struct CANStandardMessage message = {
         .timestamp = 0,
         .id = (uint32_t)i,
         .flags = flags,
@@ -373,7 +436,7 @@ static bool sendMessageGroup(struct CanProxy *proxy, uint8_t flags,
   return true;
 }
 /*----------------------------------------------------------------------------*/
-static bool sendTestMessages(struct CanProxy *proxy, const uint8_t *request,
+static bool sendTestMessages(struct CanProxy *proxy, const char *request,
     size_t length)
 {
   struct GroupSettings
@@ -426,7 +489,28 @@ static bool sendTestMessages(struct CanProxy *proxy, const uint8_t *request,
     return false;
 }
 /*----------------------------------------------------------------------------*/
-static bool setCustomRate(struct CanProxy *proxy, const uint8_t *request)
+static void serializeFrames(struct CanProxy *proxy,
+    const struct CANStandardMessage *frames, size_t count)
+{
+  char response[SERIALIZED_QUEUE_SIZE * SERIALIZED_FRAME_MTU];
+  size_t index = 0;
+  size_t length = 0;
+
+  while (index < count)
+  {
+    const struct CANMessage * const frame =
+        (const struct CANMessage *)&frames[index++];
+
+    length += packFrame(response + length, frame);
+  }
+
+  const size_t written = ifWrite(proxy->serial, response, length);
+
+  proxy->callback(proxy->argument, proxy->mode, written == length ?
+      SLCAN_EVENT_RX : SLCAN_EVENT_SERIAL_OVERRUN);
+}
+/*----------------------------------------------------------------------------*/
+static bool setCustomRate(struct CanProxy *proxy, const char *request)
 {
   uint32_t rate = 0;
 
@@ -436,7 +520,7 @@ static bool setCustomRate(struct CanProxy *proxy, const uint8_t *request)
   return ifSetParam(proxy->can, IF_RATE, &rate) == E_OK;
 }
 /*----------------------------------------------------------------------------*/
-static bool setPredefinedRate(struct CanProxy *proxy, const uint8_t *request)
+static bool setPredefinedRate(struct CanProxy *proxy, const char *request)
 {
   static const uint32_t BAUDRATE_TABLE[] = {
       10000,
@@ -459,32 +543,6 @@ static bool setPredefinedRate(struct CanProxy *proxy, const uint8_t *request)
   else
   {
     return false;
-  }
-}
-/*----------------------------------------------------------------------------*/
-static void onCanEventCallback(void *argument)
-{
-  struct CanProxy * const proxy = argument;
-
-  if (!proxy->canEvent)
-  {
-    proxy->canEvent = true;
-    wqAdd(WQ_DEFAULT, handleCanEvent, argument);
-  }
-}
-/*----------------------------------------------------------------------------*/
-static void onSerialEventCallback(void *argument)
-{
-  struct CanProxy * const proxy = argument;
-  size_t level;
-
-  if (ifGetParam(proxy->serial, IF_AVAILABLE, &level) == E_OK)
-  {
-    if (level && !proxy->serialEvent)
-    {
-      proxy->serialEvent = true;
-      wqAdd(WQ_DEFAULT, handleSerialEvent, argument);
-    }
   }
 }
 /*----------------------------------------------------------------------------*/

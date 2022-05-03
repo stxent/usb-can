@@ -9,10 +9,10 @@
 #include <halm/core/cortex/nvic.h>
 #include <halm/generic/work_queue.h>
 #include <halm/pin.h>
-#include <halm/platform/nxp/backup_domain.h>
-#include <halm/platform/nxp/flash.h>
-#include <halm/platform/nxp/gptimer.h>
-#include <halm/platform/nxp/lpc17xx/system_defs.h>
+#include <halm/platform/lpc/backup_domain.h>
+#include <halm/platform/lpc/flash.h>
+#include <halm/platform/lpc/gptimer.h>
+#include <halm/platform/lpc/lpc17xx/system_defs.h>
 #include <halm/usb/dfu.h>
 #include <assert.h>
 /*----------------------------------------------------------------------------*/
@@ -82,7 +82,7 @@ static void startFirmware(void)
   {
     void (*resetVector)(void) = (void (*)(void))table[1];
 
-    nvicSetVectorTableOffset((uint32_t)_firmware);
+    nvicSetVectorTableOffset((uint32_t)table);
     __setMainStackPointer(table[0]);
     resetVector();
   }
