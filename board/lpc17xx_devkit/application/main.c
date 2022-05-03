@@ -54,14 +54,16 @@ static void onTimerEventCallback(void *argument)
 int main(void)
 {
   boardSetupClock();
+
+  /* Initialize Work Queue */
+  WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
+  assert(WQ_DEFAULT);
+
   boardSetup(&board);
   timerSetCallback(board.eventTimer, onTimerEventCallback, board.hub);
   boardStart(&board);
 
-  /* Initialize and start Work Queue */
-  WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
-  assert(WQ_DEFAULT);
+  /* Start Work Queue */
   wqStart(WQ_DEFAULT);
-
   return 0;
 }

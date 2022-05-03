@@ -12,9 +12,10 @@
 #include <halm/core/cortex/nvic.h>
 #include <halm/core/cortex/systick.h>
 #include <halm/pin.h>
-#include <halm/platform/nxp/can.h>
-#include <halm/platform/nxp/gptimer.h>
+#include <halm/platform/lpc/can.h>
+#include <halm/platform/lpc/gptimer.h>
 #include <halm/usb/cdc_acm.h>
+#include <halm/usb/usb.h>
 #include <assert.h>
 /*----------------------------------------------------------------------------*/
 #define EVENT_RATE 50
@@ -23,7 +24,7 @@
 static const struct CanConfig canConfig = {
     .rate = 10000,
     .rxBuffers = 16,
-    .txBuffers = 16,
+    .txBuffers = 48,
     .rx = PIN(0, 0),
     .tx = PIN(0, 1),
     .priority = 3,
@@ -57,7 +58,7 @@ static void boardSetupSerial(struct Board *board)
   const struct CdcAcmConfig serialConfig = {
       .device = board->usb,
       .rxBuffers = 4,
-      .txBuffers = 4,
+      .txBuffers = 8,
 
       .endpoints = {
           .interrupt = 0x81,

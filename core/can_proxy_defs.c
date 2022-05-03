@@ -8,23 +8,12 @@
 #include "helpers.h"
 #include <halm/generic/can.h>
 /*----------------------------------------------------------------------------*/
-uint32_t calcFrameLength(uint8_t flags, size_t dlc)
-{
-  uint32_t length = 0;
-
-  /* System fields */
-  length += (flags & CAN_EXT_ID) ? 64 : 44;
-  /* Data field */
-  length += (flags & CAN_RTR) ? 0 : (dlc << 3);
-  /* Bit stuffing */
-  length += (length - 11) >> 2;
-  /* Interframe spacing */
-  length += 3;
-
-  return length;
-}
+static size_t packExtFrame(void *, const struct CANMessage *);
+static size_t packStdFrame(void *, const struct CANMessage *);
+static bool unpackExtFrame(const void *, size_t, struct CANStandardMessage *);
+static bool unpackStdFrame(const void *, size_t, struct CANStandardMessage *);
 /*----------------------------------------------------------------------------*/
-size_t packExtFrame(void *buffer, const struct CanMessage *message)
+static size_t packExtFrame(void *buffer, const struct CANMessage *message)
 {
   struct PackedExtFrame * const frame = buffer;
   const size_t length = offsetof(struct PackedExtFrame, data)
@@ -45,7 +34,7 @@ size_t packExtFrame(void *buffer, const struct CanMessage *message)
   return length + 1;
 }
 /*----------------------------------------------------------------------------*/
-size_t packStdFrame(void *buffer, const struct CanMessage *message)
+static size_t packStdFrame(void *buffer, const struct CANMessage *message)
 {
   struct PackedStdFrame * const frame = buffer;
   const size_t length = offsetof(struct PackedStdFrame, data)
@@ -64,19 +53,8 @@ size_t packStdFrame(void *buffer, const struct CanMessage *message)
   return length + 1;
 }
 /*----------------------------------------------------------------------------*/
-size_t packNumber16(void *buffer, uint16_t value)
-{
-  struct PackedNumber16 * const response = buffer;
-
-  response->prefix = 'z';
-  response->number = binToHex4(value);
-  response->eof = '\r';
-
-  return sizeof(struct PackedNumber16);
-}
-/*----------------------------------------------------------------------------*/
-bool unpackExtFrame(const void *request, size_t length,
-    struct CanStandardMessage *message)
+static bool unpackExtFrame(const void *request, size_t length,
+    struct CANStandardMessage *message)
 {
   if (length < EXT_DATA_OFFSET)
     return false;
@@ -101,8 +79,8 @@ bool unpackExtFrame(const void *request, size_t length,
   return true;
 }
 /*----------------------------------------------------------------------------*/
-bool unpackStdFrame(const void *request, size_t length,
-    struct CanStandardMessage *message)
+static bool unpackStdFrame(const void *request, size_t length,
+    struct CANStandardMessage *message)
 {
   if (length < STD_DATA_OFFSET)
     return false;
@@ -126,4 +104,58 @@ bool unpackStdFrame(const void *request, size_t length,
   }
 
   return true;
+}
+/*----------------------------------------------------------------------------*/
+uint32_t calcFrameLength(uint8_t flags, size_t dlc)
+{
+  uint32_t length = 0;
+
+  /* System fields */
+  length += (flags & CAN_EXT_ID) ? 64 : 44;
+  /* Data field */
+  length += (flags & CAN_RTR) ? 0 : (dlc << 3);
+  /* Bit stuffing */
+  length += (length - 11) >> 2;
+  /* Interframe spacing */
+  length += 3;
+
+  return length;
+}
+/*----------------------------------------------------------------------------*/
+size_t packFrame(void *buffer, const struct CANMessage *message)
+{
+  if (message->flags & CAN_EXT_ID)
+  {
+    return packExtFrame(buffer, message);
+  }
+  else
+  {
+    return packStdFrame(buffer, message);
+  }
+}
+/*----------------------------------------------------------------------------*/
+size_t packNumber16(void *buffer, uint16_t value)
+{
+  struct PackedNumber16 * const response = buffer;
+
+  response->prefix = 'z';
+  response->number = binToHex4(value);
+  response->eof = '\r';
+
+  return sizeof(struct PackedNumber16);
+}
+/*----------------------------------------------------------------------------*/
+bool unpackFrame(const void *buffer, size_t length,
+    struct CANStandardMessage *message)
+{
+  const char * const request = buffer;
+
+  if (request[0] == 'T' || request[0] == 'R')
+  {
+    return unpackExtFrame(request, length, message);
+  }
+  else
+  {
+    return unpackStdFrame(request, length, message);
+  }
 }

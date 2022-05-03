@@ -5,13 +5,13 @@
  */
 
 #include "board_shared.h"
-#include "eeprom_24xx.h"
 #include "version.h"
-#include <halm/platform/nxp/i2c.h>
-#include <halm/platform/nxp/lpc17xx/clocking.h>
-#include <halm/platform/nxp/usb_device.h>
-#include <halm/usb/usb_string.h>
+#include <dpm/drivers/memory/eeprom_24xx.h>
+#include <halm/platform/lpc/clocking.h>
+#include <halm/platform/lpc/i2c.h>
+#include <halm/platform/lpc/usb_device.h>
 #include <halm/usb/usb.h>
+#include <halm/usb/usb_string.h>
 #include <assert.h>
 #include <string.h>
 /*----------------------------------------------------------------------------*/
@@ -44,8 +44,8 @@ static const struct ExternalOscConfig extOscConfig = {
 
 static const struct PllConfig sysPllConfig = {
     .source = CLOCK_EXTERNAL,
-    .divisor = 6,
-    .multiplier = 30
+    .divisor = 3,
+    .multiplier = 25
 };
 
 static const struct PllConfig usbPllConfig = {
@@ -78,11 +78,7 @@ static void customStringWrapper(const void *argument,
 /*----------------------------------------------------------------------------*/
 void boardSetupClock(void)
 {
-#ifdef NDEBUG
-  enum Result res __attribute__((unused));
-#else
   enum Result res;
-#endif
 
   res = clockEnable(ExternalOsc, &extOscConfig);
   assert(res == E_OK);
@@ -102,6 +98,9 @@ void boardSetupClock(void)
   res = clockEnable(UsbClock, &usbClockConfig);
   assert(res == E_OK);
   while (!clockReady(UsbClock));
+
+  /* Suppress warning */
+  (void)res;
 }
 /*----------------------------------------------------------------------------*/
 struct Interface *boardSetupEeprom(struct Interface *i2c)
@@ -133,22 +132,22 @@ struct Entity *boardSetupUsb(const struct SerialNumber *number)
 
   /* USB Strings */
   usbDevStringAppend(usb, usbStringBuild(customStringHeader, 0,
-      USB_STRING_HEADER));
+      USB_STRING_HEADER, 0));
 
   if (strlen(getUsbVendorString()) > 0)
   {
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
-        getUsbVendorString(), USB_STRING_VENDOR));
+        getUsbVendorString(), USB_STRING_VENDOR, 0));
   }
   if (strlen(getUsbProductString()) > 0)
   {
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
-        getUsbProductString(), USB_STRING_PRODUCT));
+        getUsbProductString(), USB_STRING_PRODUCT, 0));
   }
   if (number && strlen(number->value) > 0)
   {
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
-        number->value, USB_STRING_SERIAL));
+        number->value, USB_STRING_SERIAL, 0));
   }
 
   return usb;

@@ -12,8 +12,8 @@
 #include <stdint.h>
 #include <xcore/helpers.h>
 /*----------------------------------------------------------------------------*/
-struct CanMessage;
-struct CanStandardMessage;
+struct CANMessage;
+struct CANStandardMessage;
 
 struct PackedExtFrame
 {
@@ -44,17 +44,16 @@ struct PackedNumber16
 } __attribute__((packed));
 
 #define RESPONSE_MTU          sizeof(struct PackedNumber16)
+#define SERIAL_MTU            64
 #define SERIALIZED_FRAME_MTU  sizeof(struct PackedExtFrame)
-#define SERIALIZED_QUEUE_SIZE 2
+#define SERIALIZED_QUEUE_SIZE 4
 /*----------------------------------------------------------------------------*/
 BEGIN_DECLS
 
 uint32_t calcFrameLength(uint8_t, size_t);
-size_t packExtFrame(void *, const struct CanMessage *);
-size_t packStdFrame(void *, const struct CanMessage *);
+size_t packFrame(void *, const struct CANMessage *);
 size_t packNumber16(void *, uint16_t);
-bool unpackExtFrame(const void *, size_t, struct CanStandardMessage *);
-bool unpackStdFrame(const void *, size_t, struct CanStandardMessage *);
+bool unpackFrame(const void *, size_t, struct CANStandardMessage *);
 
 END_DECLS
 /*----------------------------------------------------------------------------*/
