@@ -5,7 +5,7 @@
  */
 
 #include "board_shared.h"
-#include <dpm/drivers/usb/dfu_bridge.h>
+#include <dpm/usb/dfu_bridge.h>
 #include <halm/core/cortex/nvic.h>
 #include <halm/generic/work_queue.h>
 #include <halm/pin.h>
