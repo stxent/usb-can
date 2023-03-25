@@ -23,6 +23,17 @@ cmake .. -DPLATFORM=STM32F1XX -DBOARD=bluepill -DCMAKE_TOOLCHAIN_FILE=libs/xcore
 make
 ```
 
+Pins used on STM32F1xx:
+
+```sh
+PA2  - UART2 TX
+PA3  - UART2 RX
+PB8  - CAN1 RXD
+PB9  - CAN1 TXD
+PC13 - RX/TX LED
+PC14 - Error LED
+```
+
 Build project for LPC17xx Development Board:
 
 ```sh
@@ -30,6 +41,21 @@ mkdir build
 cd build
 cmake .. -DPLATFORM=LPC17XX -DBOARD=lpc17xx_devkit -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m3.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_LTO=ON -DUSE_WDT=ON
 make
+```
+
+Pins used on LPC17xx:
+
+```sh
+P0[0]  - CAN0 RXD
+P0[1]  - CAN0 TXD
+P0[10] - I2C2 SDA
+P0[11] - I2C2 SCL
+P0[29] - USB DP
+P0[30] - USB DM
+P1[9]  - RX/TX LED
+P1[10] - Error LED
+P1[30] - USB VBUS
+P2[9]  - USB CONNECT
 ```
 
 Build project for LPC43xx Development Board:
@@ -41,7 +67,22 @@ cmake .. -DPLATFORM=LPC43XX -DBOARD=lpc43xx_devkit -DCMAKE_TOOLCHAIN_FILE=libs/x
 make
 ```
 
-Bootloader is available for boards with LPC17xx and LPC43xx processors. The Bootloader firmware is located in a bootloader.hex file and may be flashed using a preferred tool, for example LPC-Link or J-Link. Then an application firmware must be loaded using dfu-util (root access may be required):
+Pins used on LPC43xx:
+
+```sh
+P3[1] - CAN0 RXD
+P3[2] - CAN0 TXD
+P2[3] - I2C2 SDA
+P2[4] - I2C2 SCL
+P5[5] - RX/TX LED
+P5[7] - Error LED
+
+USB0 DM
+USB0 DP
+USB0 VBUS
+```
+
+Bootloader is available for LPC17xx and LPC43xx boards. The Bootloader firmware is located in a bootloader.hex file and may be flashed using a preferred tool, for example LPC-Link or J-Link. Then an application firmware must be loaded using dfu-util (root access may be required):
 
 ```sh
 dfu-util -R -D application.bin
