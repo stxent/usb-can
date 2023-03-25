@@ -28,16 +28,17 @@ static const struct CanConfig canConfig = {
     .txBuffers = 4,
     .rx = PIN(PORT_3, 1),
     .tx = PIN(PORT_3, 2),
-    .priority = 3,
+    .priority = PRI_CAN,
     .channel = 0
 };
 
 static const struct SysTickTimerConfig eventTimerConfig = {
-    .priority = 0
+    .priority = PRI_TIMER
 };
 
 static const struct GpTimerConfig chronoTimerConfig = {
     .frequency = 1000000,
+    .priority = PRI_CHRONO,
     .channel = 0
 };
 
