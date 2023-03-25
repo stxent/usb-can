@@ -1,6 +1,6 @@
 /*
- * board/lpc17xx_devkit/application/main.c
- * Copyright (C) 2018 xent
+ * board/lpc43xx_devkit/application/main.c
+ * Copyright (C) 2023 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 

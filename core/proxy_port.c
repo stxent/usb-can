@@ -16,14 +16,21 @@ static void onProxyEvent(void *object, enum CanProxyMode mode,
 {
   struct ProxyPort * const port = object;
 
-  if (event == SLCAN_EVENT_RX || event == SLCAN_EVENT_TX)
-    indicatorIncrement(port->status);
-  else if (event != SLCAN_EVENT_NONE && mode != SLCAN_MODE_DISABLED)
-    indicatorIncrement(port->error);
+  if (port->error)
+  {
+    if (event >= SLCAN_EVENT_BUS_FAULT && mode != SLCAN_MODE_DISABLED)
+      indicatorIncrement(port->error);
+  }
+
+  if (port->status)
+  {
+    if (event == SLCAN_EVENT_RX || event == SLCAN_EVENT_TX)
+      indicatorIncrement(port->status);
+  }
 
   if (port->mode.next != mode)
   {
-    if (mode != SLCAN_MODE_DISABLED)
+    if (port->status && mode != SLCAN_MODE_DISABLED)
       indicatorSet(port->status, 1);
 
     port->mode.next = mode;

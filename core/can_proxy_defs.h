@@ -44,7 +44,7 @@ struct PackedNumber16
 } __attribute__((packed));
 
 #define RESPONSE_MTU          sizeof(struct PackedNumber16)
-#define SERIAL_MTU            64
+#define SERIAL_MTU            512
 #define SERIALIZED_FRAME_MTU  sizeof(struct PackedExtFrame)
 #define SERIALIZED_QUEUE_SIZE 4
 /*----------------------------------------------------------------------------*/

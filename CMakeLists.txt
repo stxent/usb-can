@@ -8,6 +8,7 @@ cmake_policy(SET CMP0069 NEW)
 
 option(USE_DFU "Use memory layout for the bootloader." OFF)
 option(USE_LTO "Enable Link Time Optimization." OFF)
+option(USE_WDT "Enable Watchdog Timer." OFF)
 
 # Default compiler flags
 set(FLAGS_DEFAULT "-fdata-sections -ffunction-sections -Wall -Wextra -Wshadow -pedantic")
@@ -43,9 +44,11 @@ add_custom_command(TARGET "application.elf"
         COMMAND "${CMAKE_OBJCOPY}" "application.elf" -Obinary "application.bin"
 )
 
-add_executable("bootloader.elf" $<TARGET_OBJECTS:bootloader>)
-target_link_libraries("bootloader.elf" PRIVATE bootloader)
-add_custom_command(TARGET "bootloader.elf"
-        POST_BUILD
-        COMMAND "${CMAKE_OBJCOPY}" "bootloader.elf" -Oihex "bootloader.hex"
-)
+if(TARGET bootloader)
+    add_executable("bootloader.elf" $<TARGET_OBJECTS:bootloader>)
+    target_link_libraries("bootloader.elf" PRIVATE bootloader)
+    add_custom_command(TARGET "bootloader.elf"
+            POST_BUILD
+            COMMAND "${CMAKE_OBJCOPY}" "bootloader.elf" -Oihex "bootloader.hex"
+    )
+endif()

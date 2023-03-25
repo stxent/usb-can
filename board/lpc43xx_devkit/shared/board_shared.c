@@ -1,6 +1,6 @@
 /*
- * board/lpc17xx_devkit/shared/board_shared.c
- * Copyright (C) 2019 xent
+ * board/lpc43xx_devkit/shared/board_shared.c
+ * Copyright (C) 2023 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
@@ -21,21 +21,35 @@ static void customStringWrapper(const void *, enum UsbLangId,
     struct UsbDescriptor *, void *);
 /*----------------------------------------------------------------------------*/
 static const struct I2CConfig i2cConfig = {
-    .rate = 400000,
-    .scl = PIN(0, 11),
-    .sda = PIN(0, 10),
-    .channel = 2
+    .rate = 100000,
+    .scl = PIN(PORT_2, 4),
+    .sda = PIN(PORT_2, 3),
+    .channel = 1
 };
 
 static const struct UsbDeviceConfig usbConfig = {
-    .dm = PIN(0, 30),
-    .dp = PIN(0, 29),
-    .connect = PIN(2, 9),
-    .vbus = PIN(1, 30),
-    .vid = 0x2404,
-    .pid = 0x03EB,
-    .priority = 1,
+    .dm = PIN(PORT_USB, PIN_USB0_DM),
+    .dp = PIN(PORT_USB, PIN_USB0_DP),
+    .connect = 0,
+    .vbus = PIN(PORT_USB, PIN_USB0_VBUS),
+    .vid = 0x15A2,
+    .pid = 0x0044,
     .channel = 0
+};
+
+static const struct PllConfig audioPllConfig = {
+    .source = CLOCK_EXTERNAL,
+    .divisor = 4,
+    .multiplier = 40
+};
+
+static const struct GenericDividerConfig divBConfig = {
+    .source = CLOCK_AUDIO_PLL,
+    .divisor = 3
+};
+
+static const struct GenericClockConfig divBClockSource = {
+    .source = CLOCK_IDIVB
 };
 
 static const struct ExternalOscConfig extOscConfig = {
@@ -44,17 +58,21 @@ static const struct ExternalOscConfig extOscConfig = {
 
 static const struct PllConfig sysPllConfig = {
     .source = CLOCK_EXTERNAL,
-    .divisor = 3,
-    .multiplier = 25
+    .divisor = 2,
+    .multiplier = 17
 };
 
 static const struct PllConfig usbPllConfig = {
     .source = CLOCK_EXTERNAL,
-    .divisor = 4,
-    .multiplier = 16
+    .divisor = 1,
+    .multiplier = 40
 };
 
-static const struct GenericClockConfig mainClockConfig = {
+static const struct GenericClockConfig mainClockConfigInt = {
+    .source = CLOCK_INTERNAL
+};
+
+static const struct GenericClockConfig mainClockConfigPll = {
     .source = CLOCK_PLL
 };
 
@@ -80,9 +98,16 @@ void boardSetupClock(void)
 {
   enum Result res;
 
+  clockEnable(MainClock, &mainClockConfigInt);
+
   res = clockEnable(ExternalOsc, &extOscConfig);
   assert(res == E_OK);
   while (!clockReady(ExternalOsc));
+
+  /* Make 120 MHz clock on AUDIO PLL */
+  res = clockEnable(AudioPll, &audioPllConfig);
+  assert(res == E_OK);
+  while (!clockReady(AudioPll));
 
   res = clockEnable(SystemPll, &sysPllConfig);
   assert(res == E_OK);
@@ -92,11 +117,26 @@ void boardSetupClock(void)
   assert(res == E_OK);
   while (!clockReady(UsbPll));
 
-  res = clockEnable(UsbClock, &usbClockConfig);
+  /* Make 40 MHz clock for CAN, clock should be less than 50 MHz */
+  res = clockEnable(DividerB, &divBConfig);
   assert(res == E_OK);
-  while (!clockReady(UsbClock));
+  while (!clockReady(DividerB));
 
-  clockEnable(MainClock, &mainClockConfig);
+  /* CAN0 is connected to the APB3 bus */
+  res = clockEnable(Apb3Clock, &divBClockSource);
+  assert(res == E_OK);
+  while (!clockReady(Apb3Clock));
+
+  /* CAN1 is connected to the APB1 bus */
+  res = clockEnable(Apb1Clock, &divBClockSource);
+  assert(res == E_OK);
+  while (!clockReady(Apb1Clock));
+
+  res = clockEnable(Usb0Clock, &usbClockConfig);
+  assert(res == E_OK);
+  while (!clockReady(Usb0Clock));
+
+  clockEnable(MainClock, &mainClockConfigPll);
 
   /* Suppress warning */
   (void)res;
@@ -106,7 +146,7 @@ struct Interface *boardSetupEeprom(struct Interface *i2c)
 {
   const struct Eeprom24xxConfig eepromConfig = {
       .i2c = i2c,
-      .chipSize = 8192,
+      .chipSize = 65536,
       .rate = 0, /* Use default rate */
       .address = 0x50,
       .pageSize = 32,

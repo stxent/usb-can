@@ -1,6 +1,6 @@
 /*
- * board/lpc17xx_devkit/application/board.c
- * Copyright (C) 2019 xent
+ * board/lpc43xx_devkit/application/board.c
+ * Copyright (C) 2023 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
@@ -24,10 +24,10 @@
 /*----------------------------------------------------------------------------*/
 static const struct CanConfig canConfig = {
     .rate = 10000,
-    .rxBuffers = 16,
-    .txBuffers = 48,
-    .rx = PIN(0, 0),
-    .tx = PIN(0, 1),
+    .rxBuffers = 4,
+    .txBuffers = 4,
+    .rx = PIN(PORT_3, 1),
+    .tx = PIN(PORT_3, 2),
     .priority = 3,
     .channel = 0
 };
@@ -42,13 +42,13 @@ static const struct GpTimerConfig chronoTimerConfig = {
 };
 
 static const struct LedIndicatorConfig errorLedConfig = {
-    .pin = PIN(1, 10),
+    .pin = PIN(PORT_5, 7),
     .limit = MAX_BLINKS,
     .inversion = false
 };
 
 static const struct LedIndicatorConfig portLedConfig = {
-    .pin = PIN(1, 9),
+    .pin = PIN(PORT_5, 5),
     .limit = MAX_BLINKS,
     .inversion = true
 };

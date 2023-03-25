@@ -1,19 +1,19 @@
-# Copyright (C) 2019 xent
+# Copyright (C) 2023 xent
 # Project is distributed under the terms of the GNU General Public License v3.0
 
 # Set version variables and USB strings
 set(VERSION_HW_MAJOR 161 PARENT_SCOPE)
 set(VERSION_HW_MINOR 0 PARENT_SCOPE)
 set(STRING_VENDOR "Private" PARENT_SCOPE)
-set(STRING_PRODUCT "LPC17xx DevKit" PARENT_SCOPE)
+set(STRING_PRODUCT "LPC43xx DevKit" PARENT_SCOPE)
 
 # Prepare memory layout
-set(MEM_ORIGIN 0)
+math(EXPR MEM_ORIGIN "0x1A000000")
 
 # Generate linker scripts
 if((DEFINED CMAKE_BUILD_TYPE) AND (${CMAKE_BUILD_TYPE} MATCHES "Release|MinSizeRel"))
-    math(EXPR APP_LENGTH "48 * 1024")
-    math(EXPR DFU_LENGTH "16 * 1024")
+    math(EXPR APP_LENGTH "96 * 1024")
+    math(EXPR DFU_LENGTH "32 * 1024")
     math(EXPR APP_ORIGIN "${MEM_ORIGIN} + ${DFU_LENGTH}")
 else()
     math(EXPR APP_LENGTH "192 * 1024")
