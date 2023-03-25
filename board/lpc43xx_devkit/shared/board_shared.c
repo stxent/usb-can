@@ -24,6 +24,7 @@ static const struct I2CConfig i2cConfig = {
     .rate = 100000,
     .scl = PIN(PORT_2, 4),
     .sda = PIN(PORT_2, 3),
+    .priority = PRI_I2C,
     .channel = 1
 };
 
@@ -34,6 +35,7 @@ static const struct UsbDeviceConfig usbConfig = {
     .vbus = PIN(PORT_USB, PIN_USB0_VBUS),
     .vid = 0x15A2,
     .pid = 0x0044,
+    .priority = PRI_USB,
     .channel = 0
 };
 

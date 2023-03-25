@@ -10,6 +10,15 @@
 #include "param_storage.h"
 #include <xcore/interface.h>
 /*----------------------------------------------------------------------------*/
+/* LPC17xx has 32 priority levels */
+
+#define PRI_CHRONO  4
+#define PRI_CAN     3
+/* PRI_GPDMA 2 */
+#define PRI_USB     1
+#define PRI_I2C     0
+#define PRI_TIMER   0
+/*----------------------------------------------------------------------------*/
 void boardSetupClock(void);
 struct Interface *boardSetupEeprom(struct Interface *);
 struct Interface *boardSetupI2C(void);

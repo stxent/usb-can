@@ -14,6 +14,15 @@ cd usb-can
 git submodule update --init --recursive
 ```
 
+Build project for Blue Pill Board with STM32F1xx:
+
+```sh
+mkdir build
+cd build
+cmake .. -DPLATFORM=STM32F1XX -DBOARD=bluepill -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m3.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_LTO=ON -DUSE_WDT=ON
+make
+```
+
 Build project for LPC17xx Development Board:
 
 ```sh
