@@ -441,8 +441,8 @@ static bool sendTestMessages(struct CanProxy *proxy, const char *request,
 {
   struct GroupSettings
   {
-    uint8_t length;
     uint8_t flags;
+    uint8_t length;
   };
 
   static const size_t GROUP_SIZE = 1000;
@@ -467,8 +467,8 @@ static bool sendTestMessages(struct CanProxy *proxy, const char *request,
 
     for (size_t i = 0; completed && (i < ARRAY_SIZE(GROUP_SETTINGS)); ++i)
     {
-      completed = sendMessageGroup(proxy, GROUP_SETTINGS[i].length,
-          GROUP_SETTINGS[i].flags, GROUP_SIZE);
+      completed = sendMessageGroup(proxy, GROUP_SETTINGS[i].flags,
+          GROUP_SETTINGS[i].length, GROUP_SIZE);
     }
 
     return completed;
@@ -479,8 +479,8 @@ static bool sendTestMessages(struct CanProxy *proxy, const char *request,
 
     if (code < ARRAY_SIZE(GROUP_SETTINGS))
     {
-      return sendMessageGroup(proxy, GROUP_SETTINGS[code].length,
-          GROUP_SETTINGS[code].flags, GROUP_SIZE);
+      return sendMessageGroup(proxy, GROUP_SETTINGS[code].flags,
+          GROUP_SETTINGS[code].length, GROUP_SIZE);
     }
     else
       return false;

@@ -31,14 +31,23 @@ list(APPEND SHARED_SOURCES "${PROJECT_BINARY_DIR}/version.c")
 # Shared package
 add_library(shared ${SHARED_SOURCES})
 target_include_directories(shared PUBLIC "${BOARD}/shared")
+# Shared library depends on includes from core library
 target_link_libraries(shared PUBLIC core)
+# Core library depends on version functions from shared library
+target_link_libraries(core PRIVATE shared)
 
 # Main application package
 add_library(application OBJECT ${APPLICATION_SOURCES})
 target_include_directories(application PRIVATE "${BOARD}/application")
 target_link_libraries(application PRIVATE shared ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/application.ld")
 
+if(USE_WDT)
+    target_compile_definitions(application PRIVATE -DENABLE_WDT)
+endif()
+
 # Bootloader package
-add_library(bootloader OBJECT ${BOOTLOADER_SOURCES})
-target_include_directories(bootloader PRIVATE "${BOARD}/bootloader")
-target_link_libraries(bootloader PRIVATE shared ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/bootloader.ld")
+if(BOOTLOADER_SOURCES)
+    add_library(bootloader OBJECT ${BOOTLOADER_SOURCES})
+    target_include_directories(bootloader PRIVATE "${BOARD}/bootloader")
+    target_link_libraries(bootloader PRIVATE shared ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/bootloader.ld")
+endif()

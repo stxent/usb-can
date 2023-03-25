@@ -1,11 +1,11 @@
 /*
- * board/lpc17xx_devkit/application/board.h
- * Copyright (C) 2019 xent
+ * board/lpc43xx_devkit/application/board.h
+ * Copyright (C) 2023 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#ifndef BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_
-#define BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_
+#ifndef BOARD_LPC43XX_DEVKIT_APPLICATION_BOARD_H_
+#define BOARD_LPC43XX_DEVKIT_APPLICATION_BOARD_H_
 /*----------------------------------------------------------------------------*/
 #include "param_storage.h"
 #include "proxy_port.h"
@@ -36,4 +36,4 @@ struct Board
 void boardSetup(struct Board *);
 void boardStart(struct Board *);
 /*----------------------------------------------------------------------------*/
-#endif /* BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_ */
+#endif /* BOARD_LPC43XX_DEVKIT_APPLICATION_BOARD_H_ */
