@@ -313,8 +313,8 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
     case 'n':
     {
       /* Set the serial number */
-      if (length == 5 && proxy->storage &&
-          !isSerialNumberValid(proxy->storage->values.serial))
+      if (length == 5 && proxy->storage
+          && !isSerialNumberValid(proxy->storage->values.serial))
       {
         proxy->storage->values.serial = inPlaceHexToBin4(&request[1]);
 
