@@ -22,8 +22,7 @@
 
 #define PRI_CHRONO  4
 #define PRI_CAN     3
-/* PRI_DMA 2 */
-#define PRI_SERIAL  2
+/* PRI_DMA, PRI_SERIAL 2 */
 #define PRI_TIMER   0
 
 #define EVENT_RATE 50
@@ -69,7 +68,6 @@ static const struct SerialDmaConfig serialDmaConfig = {
     .rate = 2000000,
     .rx = PIN(PORT_A, 3),
     .tx = PIN(PORT_A, 2),
-    .priority = PRI_SERIAL,
     .channel = USART2,
     .rxDma = DMA1_STREAM6,
     .txDma = DMA1_STREAM7
