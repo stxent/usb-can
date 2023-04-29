@@ -1,10 +1,10 @@
 # Copyright (C) 2018 xent
 # Project is distributed under the terms of the GNU General Public License v3.0
 
-project(USB2CAN C)
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.21)
 cmake_policy(SET CMP0054 NEW)
 cmake_policy(SET CMP0069 NEW)
+project(USB2CAN C)
 
 option(USE_DFU "Use memory layout for the bootloader." OFF)
 option(USE_LTO "Enable Link Time Optimization." OFF)
@@ -13,7 +13,7 @@ option(USE_WDT "Enable Watchdog Timer." OFF)
 # Default compiler flags
 set(FLAGS_DEFAULT "-pedantic -Wall -Wextra -Wshadow")
 set(FLAGS_PROJECT "-fdata-sections -ffunction-sections")
-set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_C_FLAGS_INIT "${CMAKE_C_FLAGS_INIT} ${FLAGS_DEFAULT}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS_INIT} ${FLAGS_PROJECT} ${FLAGS_CPU}")
