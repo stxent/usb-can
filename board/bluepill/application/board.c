@@ -45,7 +45,7 @@ static const struct GpTimerConfig baseTimerConfig = {
     .channel = TIM2
 };
 
-static const struct SysTickTimerConfig eventTimerConfig = {
+static const struct SysTickConfig eventTimerConfig = {
     .priority = PRI_TIMER
 };
 
@@ -107,7 +107,7 @@ void boardSetupClock(void)
 {
   enum Result res;
 
-  res = clockEnable(InternalLowSpeedOsc, 0);
+  res = clockEnable(InternalLowSpeedOsc, NULL);
   assert(res == E_OK);
   while (!clockReady(InternalLowSpeedOsc));
 
@@ -132,26 +132,26 @@ void boardSetup(struct Board *board)
 {
 #ifdef ENABLE_WDT
   board->wdt = init(Iwdg, &wdtConfig);
-  assert(board->wdt);
+  assert(board->wdt != NULL);
 #else
   (void)wdtConfig;
-  board->wdt = 0;
+  board->wdt = NULL;
 #endif
 
   /* Indication */
 
   board->error = init(LedIndicator, &errorLedConfig);
-  assert(board->error);
+  assert(board->error != NULL);
   board->status = init(LedIndicator, &portLedConfig);
-  assert(board->status);
+  assert(board->status != NULL);
 
   /* Timers */
 
   board->baseTimer = init(GpTimer, &baseTimerConfig);
-  assert(board->baseTimer);
+  assert(board->baseTimer != NULL);
 
-  board->eventTimer = init(SysTickTimer, &eventTimerConfig);
-  assert(board->eventTimer);
+  board->eventTimer = init(SysTick, &eventTimerConfig);
+  assert(board->eventTimer != NULL);
   timerSetOverflow(board->eventTimer,
       timerGetFrequency(board->eventTimer) / EVENT_RATE);
 
@@ -159,22 +159,22 @@ void boardSetup(struct Board *board)
       .timer = board->baseTimer
   };
   board->chronoTimer = init(SoftwareTimer32, &chronoTimerConfig);
-  assert(board->chronoTimer);
+  assert(board->chronoTimer != NULL);
 
   /* CAN */
 
   board->can = init(Can, &canConfig);
-  assert(board->can);
+  assert(board->can != NULL);
 
   /* Serial */
 
   board->serial = init(SerialDma, &serialDmaConfig);
-  assert(board->serial);
+  assert(board->serial != NULL);
 
   /* Create port hub and initialize all ports */
 
   board->hub = makeProxyHub(1);
-  assert(board->hub);
+  assert(board->hub != NULL);
 
   const struct ProxyPortConfig proxyPortConfig = {
       .can = board->can,
@@ -182,7 +182,7 @@ void boardSetup(struct Board *board)
       .chrono = board->chronoTimer,
       .error = board->error,
       .status = board->status,
-      .storage = 0
+      .storage = NULL
   };
   proxyPortInit(&board->hub->ports[0], &proxyPortConfig);
 }

@@ -103,15 +103,15 @@ int main(void)
   const struct Pin led = pinInit(ledPinNumber);
   pinOutput(led, true);
 
-  struct Interface * const flash = init(Flash, 0);
-  assert(flash);
+  struct Interface * const flash = init(Flash, NULL);
+  assert(flash != NULL);
 
   struct Timer * const timer = init(GpTimer, &timerConfig);
-  assert(timer);
+  assert(timer != NULL);
 
   /* USB */
   struct Entity * const usb = boardSetupUsb(0);
-  assert(usb);
+  assert(usb != NULL);
 
   const struct DfuConfig dfuConfig = {
       .device = usb,
@@ -119,7 +119,7 @@ int main(void)
       .transferSize = TRANSFER_SIZE
   };
   struct Dfu * const dfu = init(Dfu, &dfuConfig);
-  assert(dfu);
+  assert(dfu != NULL);
 
   const struct DfuBridgeConfig bridgeConfig = {
       .geometry = geometry,
@@ -129,12 +129,12 @@ int main(void)
       .reset = onResetRequest
   };
   struct DfuBridge * const bridge = init(DfuBridge, &bridgeConfig);
-  assert(bridge);
+  assert(bridge != NULL);
   (void)bridge;
 
   /* Initialize Work Queue */
   WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
-  assert(WQ_DEFAULT);
+  assert(WQ_DEFAULT != NULL);
 
   /* Start USB enumeration and event loop */
   usbDevSetConnected(usb, true);

@@ -5,6 +5,7 @@
  */
 
 #include "led_indicator.h"
+#include <xcore/atomic.h>
 #include <assert.h>
 /*----------------------------------------------------------------------------*/
 static enum Result indInit(void *, const void *);
@@ -17,7 +18,7 @@ const struct IndicatorClass * const LedIndicator =
     &(const struct IndicatorClass){
     .size = sizeof(struct LedIndicator),
     .init = indInit,
-    .deinit = 0,
+    .deinit = NULL,
     .increment = indIncrement,
     .relax = indRelax,
     .set = indSet,
@@ -27,9 +28,9 @@ const struct IndicatorClass * const LedIndicator =
 static enum Result indInit(void *object, const void *configBase)
 {
   const struct LedIndicatorConfig * const config = configBase;
-  struct LedIndicator * const indicator = object;
+  assert(config != NULL);
 
-  assert(config);
+  struct LedIndicator * const indicator = object;
 
   indicator->counter = 0;
   indicator->limit = config->limit;
@@ -47,7 +48,7 @@ static void indIncrement(void *object)
 
   if ((indicator->counter >> 1) < indicator->limit)
   {
-    __atomic_add_fetch(&indicator->counter, 2, __ATOMIC_SEQ_CST);
+    atomicFetchAddU(&indicator->counter, 2);
   }
 }
 /*----------------------------------------------------------------------------*/
@@ -69,9 +70,8 @@ static void indSpin(void *object)
 
   if (indicator->counter > 0)
   {
-    const unsigned int value =
-        __atomic_sub_fetch(&indicator->counter, 1, __ATOMIC_SEQ_CST);
-    const bool state = (value & 1) != 0;
+    const unsigned int value = atomicFetchSubU(&indicator->counter, 1);
+    const bool state = (value & 1) == 0;
 
     pinWrite(indicator->led, state ^ indicator->inversion);
   }

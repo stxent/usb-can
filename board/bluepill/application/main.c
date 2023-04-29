@@ -49,7 +49,7 @@ static void onTimerEventCallback(void *argument)
 
   indicatorSpin(board->error);
 
-  if (board->wdt)
+  if (board->wdt != NULL)
     watchdogReload(board->wdt);
 }
 /*----------------------------------------------------------------------------*/
@@ -61,7 +61,7 @@ int main(void)
 
   /* Initialize Work Queue */
   WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
-  assert(WQ_DEFAULT);
+  assert(WQ_DEFAULT != NULL);
 
   boardSetup(board);
   timerSetCallback(board->eventTimer, onTimerEventCallback, board);

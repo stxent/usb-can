@@ -32,7 +32,7 @@ static const struct CanConfig canConfig = {
     .channel = 0
 };
 
-static const struct SysTickTimerConfig eventTimerConfig = {
+static const struct SysTickConfig eventTimerConfig = {
     .priority = PRI_TIMER
 };
 
@@ -73,24 +73,24 @@ static void boardSetupSerial(struct Board *board)
       }
   };
   board->serial = init(CdcAcm, &serialConfig);
-  assert(board->serial);
+  assert(board->serial != NULL);
 }
 /*----------------------------------------------------------------------------*/
 void boardSetup(struct Board *board)
 {
 #ifdef ENABLE_WDT
   board->wdt = init(Wdt, &wdtConfig);
-  assert(board->wdt);
+  assert(board->wdt != NULL);
 #else
   (void)wdtConfig;
-  board->wdt = 0;
+  board->wdt = NULL;
 #endif
 
   /* I2C and parameter storage*/
   board->i2c = boardSetupI2C();
-  assert(board->i2c);
+  assert(board->i2c != NULL);
   board->eeprom = boardSetupEeprom(board->i2c);
-  assert(board->eeprom);
+  assert(board->eeprom != NULL);
 
   storageInit(&board->storage, board->eeprom, 0);
   storageLoad(&board->storage);
@@ -98,30 +98,30 @@ void boardSetup(struct Board *board)
 
   /* USB */
   board->usb = boardSetupUsb(&board->number);
-  assert(board->usb);
+  assert(board->usb != NULL);
   boardSetupSerial(board);
 
   /* Other peripherals */
   board->chronoTimer = init(GpTimer, &chronoTimerConfig);
-  assert(board->chronoTimer);
+  assert(board->chronoTimer != NULL);
   timerEnable(board->chronoTimer);
 
-  board->eventTimer = init(SysTickTimer, &eventTimerConfig);
-  assert(board->eventTimer);
+  board->eventTimer = init(SysTick, &eventTimerConfig);
+  assert(board->eventTimer != NULL);
   timerSetOverflow(board->eventTimer,
       timerGetFrequency(board->eventTimer) / EVENT_RATE);
 
   board->error = init(LedIndicator, &errorLedConfig);
-  assert(board->error);
+  assert(board->error != NULL);
   board->status = init(LedIndicator, &portLedConfig);
-  assert(board->status);
+  assert(board->status != NULL);
 
   board->can = init(Can, &canConfig);
-  assert(board->can);
+  assert(board->can != NULL);
 
   /* Create port hub and initialize all ports */
   board->hub = makeProxyHub(1);
-  assert(board->hub);
+  assert(board->hub != NULL);
 
   const struct ProxyPortConfig proxyPortConfig = {
       .can = board->can,

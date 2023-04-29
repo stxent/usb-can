@@ -42,7 +42,7 @@ struct ProxyHub *makeProxyHub(size_t size)
   struct ProxyHub * const hub = malloc(sizeof(struct ProxyHub)
       + size * sizeof(struct ProxyPort));
 
-  if (hub)
+  if (hub != NULL)
     hub->size = size;
 
   return hub;

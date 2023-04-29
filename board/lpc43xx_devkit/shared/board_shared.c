@@ -168,8 +168,8 @@ struct Entity *boardSetupUsb(const struct SerialNumber *number)
   /* USB Device */
   struct Entity * const usb = init(UsbDevice, &usbConfig);
 
-  if (!usb)
-    return 0;
+  if (usb == NULL)
+    return NULL;
 
   /* USB Strings */
   usbDevStringAppend(usb, usbStringBuild(customStringHeader, 0,

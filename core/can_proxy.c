@@ -94,15 +94,15 @@ static void changePortMode(struct CanProxy *proxy, enum CanProxyMode mode)
   switch (mode)
   {
     case SLCAN_MODE_ACTIVE:
-      ifSetParam(proxy->can, IF_CAN_ACTIVE, 0);
+      ifSetParam(proxy->can, IF_CAN_ACTIVE, NULL);
       break;
 
     case SLCAN_MODE_LOOPBACK:
-      ifSetParam(proxy->can, IF_CAN_LOOPBACK, 0);
+      ifSetParam(proxy->can, IF_CAN_LOOPBACK, NULL);
       break;
 
     default:
-      ifSetParam(proxy->can, IF_CAN_LISTENER, 0);
+      ifSetParam(proxy->can, IF_CAN_LISTENER, NULL);
       break;
   }
 
@@ -304,7 +304,7 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
     case 'N':
     {
       /* Get the serial number */
-      if (!proxy->storage)
+      if (proxy->storage == NULL)
         return packNumber16(response, 0xFFFF);
       else
         return packNumber16(response, (uint16_t)proxy->storage->values.serial);
@@ -313,7 +313,7 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
     case 'n':
     {
       /* Set the serial number */
-      if (length == 5 && proxy->storage
+      if (length == 5 && proxy->storage != NULL
           && !isSerialNumberValid(proxy->storage->values.serial))
       {
         proxy->storage->values.serial = inPlaceHexToBin4(&request[1]);
@@ -405,7 +405,7 @@ static void readSerialInput(struct CanProxy *proxy)
 static bool sendMessageGroup(struct CanProxy *proxy, uint8_t flags,
     size_t length, size_t count)
 {
-  if (!proxy->chrono)
+  if (proxy->chrono == NULL)
     return false;
 
   uint32_t rate;
@@ -549,11 +549,11 @@ static bool setPredefinedRate(struct CanProxy *proxy, const char *request)
 static enum Result proxyInit(void *object, const void *configBase)
 {
   const struct CanProxyConfig * const config = configBase;
-  struct CanProxy * const proxy = object;
+  assert(config != NULL);
+  assert(config->can != NULL);
+  assert(config->serial != NULL);
 
-  assert(config);
-  assert(config->can);
-  assert(config->serial);
+  struct CanProxy * const proxy = object;
 
   proxy->can = config->can;
   proxy->serial = config->serial;
@@ -578,6 +578,6 @@ static void proxyDeinit(void *object)
 {
   struct CanProxy * const proxy = object;
 
-  ifSetCallback(proxy->serial, 0, 0);
-  ifSetCallback(proxy->can, 0, 0);
+  ifSetCallback(proxy->serial, NULL, NULL);
+  ifSetCallback(proxy->can, NULL, NULL);
 }
