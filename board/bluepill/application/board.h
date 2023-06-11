@@ -20,7 +20,7 @@ struct Board
   struct Timer *baseTimer;
   struct Timer *chronoTimer;
   struct Timer *eventTimer;
-  struct Watchdog *wdt;
+  struct Watchdog *watchdog;
 
   struct Indicator *error;
   struct Indicator *status;

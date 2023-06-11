@@ -5,15 +5,8 @@
  */
 
 #include "board.h"
-#include "board_shared.h"
-#include <halm/generic/work_queue.h>
 #include <halm/watchdog.h>
-#include <assert.h>
 #include <stdlib.h>
-/*----------------------------------------------------------------------------*/
-static const struct WorkQueueConfig workQueueConfig = {
-    .size = 2
-};
 /*----------------------------------------------------------------------------*/
 static void onTimerEventCallback(void *argument)
 {
@@ -50,25 +43,16 @@ static void onTimerEventCallback(void *argument)
 
   indicatorSpin(board->error);
 
-  if (board->wdt != NULL)
-    watchdogReload(board->wdt);
+  if (board->watchdog != NULL)
+    watchdogReload(board->watchdog);
 }
 /*----------------------------------------------------------------------------*/
 int main(void)
 {
   struct Board * const board = malloc(sizeof(struct Board));
 
-  boardSetupClock();
-
-  /* Initialize Work Queue */
-  WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
-  assert(WQ_DEFAULT != NULL);
-
-  boardSetup(board);
+  appBoardInit(board);
   timerSetCallback(board->eventTimer, onTimerEventCallback, board);
-  boardStart(board);
 
-  /* Start Work Queue */
-  wqStart(WQ_DEFAULT);
-  return 0;
+  return appBoardStart(board);
 }

@@ -49,8 +49,8 @@ static void onTimerEventCallback(void *argument)
 
   indicatorSpin(board->error);
 
-  if (board->wdt != NULL)
-    watchdogReload(board->wdt);
+  if (board->watchdog != NULL)
+    watchdogReload(board->watchdog);
 }
 /*----------------------------------------------------------------------------*/
 int main(void)

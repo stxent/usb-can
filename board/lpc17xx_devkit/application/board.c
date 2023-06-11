@@ -6,120 +6,110 @@
 
 #include "board.h"
 #include "board_shared.h"
-#include "helpers.h"
+#include "dfu_defs.h"
 #include "led_indicator.h"
-#include "version.h"
+#include <dpm/memory/m24.h>
 #include <halm/core/cortex/nvic.h>
-#include <halm/core/cortex/systick.h>
-#include <halm/pin.h>
-#include <halm/platform/lpc/can.h>
-#include <halm/platform/lpc/gptimer.h>
-#include <halm/platform/lpc/wdt.h>
-#include <halm/usb/cdc_acm.h>
+#include <halm/generic/work_queue.h>
+#include <halm/generic/work_queue_irq.h>
+#include <halm/platform/lpc/backup_domain.h>
 #include <halm/usb/usb.h>
 #include <assert.h>
 /*----------------------------------------------------------------------------*/
-#define EVENT_RATE 50
-#define MAX_BLINKS 16
+#define EVENT_RATE    50
+#define MAX_BLINKS    16
+
+#define MEMORY_OFFSET 0
+
+DECLARE_WQ_IRQ(WQ_LP, SPI_ISR)
 /*----------------------------------------------------------------------------*/
-static const struct CanConfig canConfig = {
-    .rate = 10000,
-    .rxBuffers = 16,
-    .txBuffers = 48,
-    .rx = PIN(0, 0),
-    .tx = PIN(0, 1),
-    .priority = PRI_CAN,
-    .channel = 0
-};
-
-static const struct SysTickConfig eventTimerConfig = {
-    .priority = PRI_TIMER
-};
-
-static const struct GpTimerConfig chronoTimerConfig = {
-    .frequency = 1000000,
-    .priority = PRI_CHRONO,
-    .channel = 0
-};
-
 static const struct LedIndicatorConfig errorLedConfig = {
-    .pin = PIN(1, 10),
+    .pin = BOARD_LED_ERROR,
     .limit = MAX_BLINKS,
     .inversion = false
 };
 
 static const struct LedIndicatorConfig portLedConfig = {
-    .pin = PIN(1, 9),
+    .pin = BOARD_LED_BUSY,
     .limit = MAX_BLINKS,
     .inversion = true
 };
 
-static const struct WdtConfig wdtConfig = {
-    .period = 1000
+static const struct WorkQueueConfig workQueueConfig = {
+    .size = 3
+};
+
+static const struct WorkQueueIrqConfig workQueueIrqConfig = {
+    .size = 1,
+    .irq = SPI_IRQ,
+    .priority = 0
 };
 /*----------------------------------------------------------------------------*/
-static void boardSetupSerial(struct Board *board)
+void appBoardInit(struct Board *board)
 {
-  /* CDC */
-  const struct CdcAcmConfig serialConfig = {
-      .device = board->usb,
-      .rxBuffers = 4,
-      .txBuffers = 8,
+  boardSetupClock();
 
-      .endpoints = {
-          .interrupt = 0x81,
-          .rx = 0x02,
-          .tx = 0x82
-      }
-  };
-  board->serial = init(CdcAcm, &serialConfig);
-  assert(board->serial != NULL);
-}
-/*----------------------------------------------------------------------------*/
-void boardSetup(struct Board *board)
-{
 #ifdef ENABLE_WDT
-  board->wdt = init(Wdt, &wdtConfig);
-  assert(board->wdt != NULL);
+  board->watchdog = boardMakeWatchdog();
+  assert(board->watchdog != NULL);
 #else
-  (void)wdtConfig;
-  board->wdt = NULL;
+  board->watchdog = NULL;
 #endif
 
-  /* I2C and parameter storage*/
-  board->i2c = boardSetupI2C();
-  assert(board->i2c != NULL);
-  board->eeprom = boardSetupEeprom(board->i2c);
-  assert(board->eeprom != NULL);
+  /* Initialize Work Queues, start Low-Priority Work Queue */
 
-  storageInit(&board->storage, board->eeprom, 0);
-  storageLoad(&board->storage);
-  makeSerialNumber(&board->number, board->storage.values.serial);
+  WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
+  assert(WQ_DEFAULT != NULL);
+  WQ_LP = init(WorkQueueIrq, &workQueueIrqConfig);
+  assert(WQ_LP != NULL);
+  wqStart(WQ_LP);
 
-  /* USB */
-  board->usb = boardSetupUsb(&board->number);
-  assert(board->usb != NULL);
-  boardSetupSerial(board);
+  /* Timers */
 
-  /* Other peripherals */
-  board->chronoTimer = init(GpTimer, &chronoTimerConfig);
+  board->chronoTimer = boardMakeChronoTimer();
   assert(board->chronoTimer != NULL);
-  timerEnable(board->chronoTimer);
 
-  board->eventTimer = init(SysTick, &eventTimerConfig);
+  board->eepromTimer = boardMakeEepromTimer();
+  assert(board->eepromTimer != NULL);
+
+  board->eventTimer = boardMakeEventTimer();
   assert(board->eventTimer != NULL);
   timerSetOverflow(board->eventTimer,
       timerGetFrequency(board->eventTimer) / EVENT_RATE);
+
+  /* I2C and parameter storage */
+
+  board->i2c = boardMakeI2C();
+  assert(board->i2c != NULL);
+  board->eeprom = boardMakeEeprom(board->i2c, board->eepromTimer);
+  assert(board->eeprom != NULL);
+  m24SetUpdateWorkQueue(board->eeprom, WQ_LP);
+
+  storageInit(&board->storage, board->eeprom, MEMORY_OFFSET);
+  storageLoad(&board->storage);
+  makeSerialNumber(&board->number, board->storage.values.serial);
+
+  /* CAN */
+
+  board->can = boardMakeCan();
+  assert(board->can != NULL);
+
+  /* USB */
+
+  board->usb = boardMakeUsb(&board->number);
+  assert(board->usb != NULL);
+  board->serial = boardMakeSerial(board->usb);
+  assert(board->serial != NULL);
+
+  /* Indication */
 
   board->error = init(LedIndicator, &errorLedConfig);
   assert(board->error != NULL);
   board->status = init(LedIndicator, &portLedConfig);
   assert(board->status != NULL);
 
-  board->can = init(Can, &canConfig);
-  assert(board->can != NULL);
-
   /* Create port hub and initialize all ports */
+
   board->hub = makeProxyHub(1);
   assert(board->hub != NULL);
 
@@ -134,13 +124,21 @@ void boardSetup(struct Board *board)
   proxyPortInit(&board->hub->ports[0], &proxyPortConfig);
 }
 /*----------------------------------------------------------------------------*/
-void boardStart(struct Board *board)
+int appBoardStart(struct Board *board)
 {
   usbDevSetConnected(board->usb, true);
+
+  timerEnable(board->chronoTimer);
   timerEnable(board->eventTimer);
+
+  /* Start Work Queue */
+  wqStart(WQ_DEFAULT);
+
+  return 0;
 }
 /*----------------------------------------------------------------------------*/
 void resetToBootloader(void)
 {
+  *(uint32_t *)backupDomainAddress() = DFU_START_REQUEST;
   nvicResetCore();
 }

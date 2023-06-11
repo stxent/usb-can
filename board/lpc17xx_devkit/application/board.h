@@ -22,8 +22,9 @@ struct Board
   struct Interface *eeprom;
   struct Interface *serial;
   struct Timer *chronoTimer;
+  struct Timer *eepromTimer;
   struct Timer *eventTimer;
-  struct Watchdog *wdt;
+  struct Watchdog *watchdog;
 
   struct Indicator *error;
   struct Indicator *status;
@@ -33,7 +34,7 @@ struct Board
   struct SerialNumber number;
 };
 /*----------------------------------------------------------------------------*/
-void boardSetup(struct Board *);
-void boardStart(struct Board *);
+void appBoardInit(struct Board *);
+int appBoardStart(struct Board *);
 /*----------------------------------------------------------------------------*/
 #endif /* BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_ */
