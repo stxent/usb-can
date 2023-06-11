@@ -131,11 +131,11 @@ void boardSetupClock(void)
 void boardSetup(struct Board *board)
 {
 #ifdef ENABLE_WDT
-  board->wdt = init(Iwdg, &wdtConfig);
-  assert(board->wdt != NULL);
+  board->watchdog = init(Iwdg, &wdtConfig);
+  assert(board->watchdog != NULL);
 #else
   (void)wdtConfig;
-  board->wdt = NULL;
+  board->watchdog = NULL;
 #endif
 
   /* Indication */

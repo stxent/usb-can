@@ -5,6 +5,7 @@
  */
 
 #include "board_shared.h"
+#include "dfu_defs.h"
 #include <dpm/usb/dfu_bridge.h>
 #include <halm/core/cortex/nvic.h>
 #include <halm/generic/work_queue.h>
@@ -12,16 +13,14 @@
 #include <halm/platform/lpc/backup_domain.h>
 #include <halm/platform/lpc/flash.h>
 #include <halm/platform/lpc/gptimer.h>
-#include <halm/platform/lpc/lpc17xx/system_defs.h>
 #include <halm/usb/dfu.h>
 #include <assert.h>
 /*----------------------------------------------------------------------------*/
-#define MAGIC_WORD    0x3A84508FUL
-#define TRANSFER_SIZE 128
+#define TRANSFER_SIZE     128
 /*----------------------------------------------------------------------------*/
-static void clearResetRequest(void);
 static bool isBootloaderRequested(void);
 static void onResetRequest(void);
+static void setBootloaderMark(void);
 static void startFirmware(void);
 /*----------------------------------------------------------------------------*/
 extern const uint32_t _firmware[2];
@@ -45,31 +44,19 @@ static const struct WorkQueueConfig workQueueConfig = {
     .size = 2
 };
 /*----------------------------------------------------------------------------*/
-static const PinNumber ledPinNumber = PIN(1, 10);
-
-static const struct GpTimerConfig timerConfig = {
-    .frequency = 1000,
-    .channel = 0
-};
-/*----------------------------------------------------------------------------*/
-static void clearResetRequest(void)
-{
-  LPC_SC->RSID = RSID_POR;
-  *(uint32_t *)backupDomainAddress() = 0;
-}
-/*----------------------------------------------------------------------------*/
 static bool isBootloaderRequested(void)
 {
-  const bool hwReset = (LPC_SC->RSID & RSID_POR) == 0;
-  const bool fwRequest = *(const uint32_t *)backupDomainAddress() == MAGIC_WORD;
-
-  return hwReset && !fwRequest;
+  return *(const uint32_t *)backupDomainAddress() == DFU_START_REQUEST;
 }
 /*----------------------------------------------------------------------------*/
 static void onResetRequest(void)
 {
-  *(uint32_t *)backupDomainAddress() = MAGIC_WORD;
   nvicResetCore();
+}
+/*----------------------------------------------------------------------------*/
+static void setBootloaderMark(void)
+{
+  *(uint32_t *)backupDomainAddress() = DFU_START_MARK;
 }
 /*----------------------------------------------------------------------------*/
 static void startFirmware(void)
@@ -92,23 +79,26 @@ int main(void)
 {
   if (!isBootloaderRequested())
   {
-    clearResetRequest();
+    setBootloaderMark();
     startFirmware();
+    /* Unreachable code when second-stage firmware is correct */
   }
 
+  setBootloaderMark();
   boardSetupClock();
 
-  const struct Pin led = pinInit(ledPinNumber);
-  pinOutput(led, true);
+  pinOutput(pinInit(BOARD_LED_R_PIN), true);
+  pinOutput(pinInit(BOARD_LED_G_PIN), true);
+  pinOutput(pinInit(BOARD_LED_B_PIN), true);
 
   struct Interface * const flash = init(Flash, NULL);
   assert(flash != NULL);
 
-  struct Timer * const timer = init(GpTimer, &timerConfig);
+  struct Timer * const timer = boardMakeChronoTimer();
   assert(timer != NULL);
 
   /* USB */
-  struct Entity * const usb = boardSetupUsb(NULL);
+  struct Entity * const usb = boardMakeUsb(NULL);
   assert(usb != NULL);
 
   const struct DfuConfig dfuConfig = {

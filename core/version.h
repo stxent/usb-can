@@ -23,12 +23,16 @@ struct BoardVersion
     uint16_t major;
     uint16_t minor;
     uint32_t revision;
+    uint32_t hash;
   } sw;
+
+  uint32_t timestamp;
 };
 /*----------------------------------------------------------------------------*/
 BEGIN_DECLS
 
 const struct BoardVersion *getBoardVersion(void);
+const char *getBuildHostname(void);
 const char *getUsbProductString(void);
 const char *getUsbVendorString(void);
 

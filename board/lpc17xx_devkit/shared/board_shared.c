@@ -5,27 +5,65 @@
  */
 
 #include "board_shared.h"
+#include "param_storage.h"
 #include "version.h"
-#include <dpm/memory/eeprom_24xx.h>
+#include <dpm/memory/m24.h>
+#include <halm/core/cortex/systick.h>
+#include <halm/platform/lpc/can.h>
 #include <halm/platform/lpc/clocking.h>
 #include <halm/platform/lpc/i2c.h>
+#include <halm/platform/lpc/gptimer.h>
 #include <halm/platform/lpc/usb_device.h>
+#include <halm/platform/lpc/wdt.h>
+#include <halm/usb/cdc_acm.h>
 #include <halm/usb/usb.h>
 #include <halm/usb/usb_string.h>
 #include <assert.h>
 #include <string.h>
+/*----------------------------------------------------------------------------*/
+/* LPC17xx has 32 priority levels */
+
+#define PRI_CHRONO  5
+#define PRI_CAN     4
+/* PRI_GPDMA 3 */
+#define PRI_USB     2
+#define PRI_I2C     1
+#define PRI_TIMER   1
+/* PRI_WQ_LP 0 */
 /*----------------------------------------------------------------------------*/
 static void customStringHeader(const void *, enum UsbLangId,
     struct UsbDescriptor *, void *);
 static void customStringWrapper(const void *, enum UsbLangId,
     struct UsbDescriptor *, void *);
 /*----------------------------------------------------------------------------*/
+static const struct CanConfig canConfig = {
+    .rate = 10000,
+    .rxBuffers = 16,
+    .txBuffers = 48,
+    .rx = PIN(0, 0),
+    .tx = PIN(0, 1),
+    .priority = PRI_CAN,
+    .channel = 0
+};
+
 static const struct I2CConfig i2cConfig = {
     .rate = 400000,
     .scl = PIN(0, 11),
     .sda = PIN(0, 10),
     .priority = PRI_I2C,
     .channel = 2
+};
+
+static const struct GpTimerConfig chronoTimerConfig = {
+    .frequency = 1000000,
+    .priority = PRI_CHRONO,
+    .channel = 0
+};
+
+static const struct GpTimerConfig eepromTimerConfig = {
+    .frequency = 1000000,
+    .priority = PRI_I2C,
+    .channel = 1
 };
 
 static const struct UsbDeviceConfig usbConfig = {
@@ -39,6 +77,10 @@ static const struct UsbDeviceConfig usbConfig = {
     .channel = 0
 };
 
+static const struct WdtConfig wdtConfig = {
+    .period = 1000
+};
+/*----------------------------------------------------------------------------*/
 static const struct ExternalOscConfig extOscConfig = {
     .frequency = 12000000
 };
@@ -103,26 +145,65 @@ void boardSetupClock(void)
   (void)res;
 }
 /*----------------------------------------------------------------------------*/
-struct Interface *boardSetupEeprom(struct Interface *i2c)
+struct Interface *boardMakeCan(void)
 {
-  const struct Eeprom24xxConfig eepromConfig = {
-      .i2c = i2c,
-      .chipSize = 8192,
-      .rate = 0, /* Use default rate */
+  return init(Can, &canConfig);
+}
+/*----------------------------------------------------------------------------*/
+struct Timer *boardMakeChronoTimer(void)
+{
+  return init(GpTimer, &chronoTimerConfig);
+}
+/*----------------------------------------------------------------------------*/
+struct Interface *boardMakeEeprom(struct Interface *bus, struct Timer *timer)
+{
+  const struct M24Config config = {
+      .bus = bus,
+      .timer = timer,
       .address = 0x50,
+      .chipSize = 8192,
       .pageSize = 32,
+      .rate = 0, /* Use default rate */
       .blocks = 1
   };
 
-  return init(Eeprom24xx, &eepromConfig);
+  return init(M24, &config);
 }
 /*----------------------------------------------------------------------------*/
-struct Interface *boardSetupI2C(void)
+struct Timer *boardMakeEepromTimer(void)
+{
+  return init(GpTimer, &eepromTimerConfig);
+}
+/*----------------------------------------------------------------------------*/
+struct Timer *boardMakeEventTimer(void)
+{
+  return init(SysTick, &(struct SysTickConfig){PRI_TIMER});
+}
+/*----------------------------------------------------------------------------*/
+struct Interface *boardMakeI2C(void)
 {
   return init(I2C, &i2cConfig);
 }
 /*----------------------------------------------------------------------------*/
-struct Entity *boardSetupUsb(const struct SerialNumber *number)
+struct Interface *boardMakeSerial(struct Entity *usb)
+{
+  /* CDC */
+  const struct CdcAcmConfig config = {
+      .device = usb,
+      .rxBuffers = 4,
+      .txBuffers = 8,
+
+      .endpoints = {
+          .interrupt = 0x81,
+          .rx = 0x02,
+          .tx = 0x82
+      }
+  };
+
+  return init(CdcAcm, &config);
+}
+/*----------------------------------------------------------------------------*/
+struct Entity *boardMakeUsb(const struct SerialNumber *number)
 {
   /* USB Device */
   struct Entity * const usb = init(UsbDevice, &usbConfig);
@@ -144,11 +225,16 @@ struct Entity *boardSetupUsb(const struct SerialNumber *number)
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
         getUsbProductString(), USB_STRING_PRODUCT, 0));
   }
-  if (number && strlen(number->value) > 0)
+  if (number != NULL && strlen(number->value) > 0)
   {
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
         number->value, USB_STRING_SERIAL, 0));
   }
 
   return usb;
+}
+/*----------------------------------------------------------------------------*/
+struct Watchdog *boardMakeWatchdog(void)
+{
+  return init(Wdt, &wdtConfig);
 }

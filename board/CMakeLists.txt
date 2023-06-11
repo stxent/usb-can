@@ -8,18 +8,19 @@ if(NOT DEFINED PLATFORM)
     message(FATAL_ERROR "PLATFORM not defined")
 endif()
 
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/libs/xcore/cmake")
+include(GetGitInfo)
+
 add_subdirectory("${BOARD}")
 set(FLAGS_LINKER "--specs=nosys.specs --specs=nano.specs -Wl,--gc-sections")
 
 # Generate version file
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-include(GetGitRevisionDescription)
-
-git_describe(_version_sw_tag --abbrev=0 --tags)
+cmake_host_system_information(RESULT BUILD_HOSTNAME QUERY HOSTNAME)
+string(TIMESTAMP BUILD_TIMESTAMP "%s")
 git_commit_count(VERSION_SW_REVISION)
-string(REPLACE "." ";" _version_sw_tag_splitted "${_version_sw_tag}")
-list(GET _version_sw_tag_splitted 0 VERSION_SW_MAJOR)
-list(GET _version_sw_tag_splitted 1 VERSION_SW_MINOR)
+git_hash(VERSION_SW_HASH)
+git_version(VERSION_SW_MAJOR VERSION_SW_MINOR)
 configure_file("version_template.c" "${PROJECT_BINARY_DIR}/version.c")
 
 # Find source files

@@ -7,21 +7,31 @@
 #ifndef BOARD_LPC43XX_DEVKIT_SHARED_BOARD_SHARED_H_
 #define BOARD_LPC43XX_DEVKIT_SHARED_BOARD_SHARED_H_
 /*----------------------------------------------------------------------------*/
-#include "param_storage.h"
-#include <xcore/interface.h>
+#include <halm/pin.h>
 /*----------------------------------------------------------------------------*/
-/* LPC43xx has 8 priority levels */
+#define BOARD_LED_R_PIN PIN(PORT_5, 7)
+#define BOARD_LED_G_PIN PIN(PORT_5, 5)
+#define BOARD_LED_B_PIN PIN(PORT_4, 0)
 
-#define PRI_CHRONO  4
-#define PRI_CAN     3
-/* PRI_GPDMA 2 */
-#define PRI_USB     1
-#define PRI_I2C     0
-#define PRI_TIMER   0
+#define BOARD_LED_BUSY  BOARD_LED_G_PIN
+#define BOARD_LED_ERROR BOARD_LED_R_PIN
+/*----------------------------------------------------------------------------*/
+struct Entity;
+struct Interface;
+struct SerialNumber;
+struct Timer;
+struct Watchdog;
 /*----------------------------------------------------------------------------*/
 void boardSetupClock(void);
-struct Interface *boardSetupEeprom(struct Interface *);
-struct Interface *boardSetupI2C(void);
-struct Entity *boardSetupUsb(const struct SerialNumber *);
+
+struct Interface *boardMakeCan(void);
+struct Timer *boardMakeChronoTimer(void);
+struct Interface *boardMakeEeprom(struct Interface *, struct Timer *);
+struct Timer *boardMakeEepromTimer(void);
+struct Timer *boardMakeEventTimer(void);
+struct Interface *boardMakeI2C(void);
+struct Interface *boardMakeSerial(struct Entity *);
+struct Entity *boardMakeUsb(const struct SerialNumber *);
+struct Watchdog *boardMakeWatchdog(void);
 /*----------------------------------------------------------------------------*/
 #endif /* BOARD_LPC43XX_DEVKIT_SHARED_BOARD_SHARED_H_ */
