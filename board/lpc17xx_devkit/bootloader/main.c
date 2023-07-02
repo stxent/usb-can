@@ -8,6 +8,7 @@
 #include "dfu_defs.h"
 #include <dpm/usb/dfu_bridge.h>
 #include <halm/core/cortex/nvic.h>
+#include <halm/generic/flash.h>
 #include <halm/generic/work_queue.h>
 #include <halm/pin.h>
 #include <halm/platform/lpc/backup_domain.h>
@@ -16,7 +17,7 @@
 #include <halm/usb/dfu.h>
 #include <assert.h>
 /*----------------------------------------------------------------------------*/
-#define TRANSFER_SIZE     128
+#define TRANSFER_SIZE 128
 /*----------------------------------------------------------------------------*/
 static bool isBootloaderRequested(void);
 static void onResetRequest(void);
@@ -24,21 +25,6 @@ static void setBootloaderMark(void);
 static void startFirmware(void);
 /*----------------------------------------------------------------------------*/
 extern const uint32_t _firmware[2];
-
-static const struct FlashGeometry geometry[] = {
-    {
-        .count = 16,
-        .size = 4096,
-        .time = 100
-    }, {
-        .count = 14,
-        .size = 32768,
-        .time = 100
-    }, {
-        /* End of the list */
-        0, 0, 0
-    }
-};
 
 static const struct WorkQueueConfig workQueueConfig = {
     .size = 2
@@ -81,7 +67,7 @@ int main(void)
   {
     setBootloaderMark();
     startFirmware();
-    /* Unreachable code when second-stage firmware is correct */
+    /* Unreachable code when main firmware is correct */
   }
 
   setBootloaderMark();
@@ -91,8 +77,10 @@ int main(void)
   pinOutput(pinInit(BOARD_LED_G_PIN), true);
   pinOutput(pinInit(BOARD_LED_B_PIN), true);
 
+  struct FlashGeometry layout[2];
   struct Interface * const flash = init(Flash, NULL);
   assert(flash != NULL);
+  const size_t regions = flashGetGeometry(flash, layout, ARRAY_SIZE(layout));
 
   struct Timer * const timer = boardMakeChronoTimer();
   assert(timer != NULL);
@@ -110,11 +98,13 @@ int main(void)
   assert(dfu != NULL);
 
   const struct DfuBridgeConfig bridgeConfig = {
-      .geometry = geometry,
-      .flash = flash,
       .device = dfu,
+      .reset = onResetRequest,
+      .flash = flash,
       .offset = (size_t)&_firmware,
-      .reset = onResetRequest
+      .geometry = layout,
+      .regions = regions,
+      .writeonly = false
   };
   struct DfuBridge * const bridge = init(DfuBridge, &bridgeConfig);
   assert(bridge != NULL);
