@@ -11,7 +11,6 @@
 #include <halm/generic/software_timer_32.h>
 #include <halm/platform/stm32/can.h>
 #include <halm/platform/stm32/clocking.h>
-#include <halm/platform/stm32/dma_base.h>
 #include <halm/platform/stm32/gptimer.h>
 #include <halm/platform/stm32/iwdg.h>
 #include <halm/platform/stm32/serial_dma.h>
@@ -32,6 +31,7 @@ static const struct CanConfig canConfig = {
     .timer = 0,
     .rate = 1000000,
     .rxBuffers = 16,
+    /* TX buffer count should be at least SERIALIZED_QUEUE_SIZE */
     .txBuffers = 16,
     .rx = PIN(PORT_B, 8),
     .tx = PIN(PORT_B, 9),
@@ -77,55 +77,38 @@ static const struct IwdgConfig wdtConfig = {
     .period = 1000
 };
 /*----------------------------------------------------------------------------*/
-static const struct ExternalOscConfig extOscConfig = {
-    .frequency = 8000000
-};
-
-static const struct MainPllConfig mainPllConfig = {
-    .source = CLOCK_EXTERNAL,
-    .divisor = 1,
-    .multiplier = 9
-};
-
-static const struct BusClockConfig ahbClockConfig = {
-    .divisor = 1
-};
-
-static const struct BusClockConfig apbClockConfigFast = {
-    .divisor = 1
-};
-
-static const struct BusClockConfig apbClockConfigSlow = {
-    .divisor = 2
-};
-
-static const struct SystemClockConfig systemClockConfigPll = {
-    .source = CLOCK_PLL
-};
-/*----------------------------------------------------------------------------*/
-void boardSetupClock(void)
+bool boardSetupClock(void)
 {
-  enum Result res;
+  static const struct ExternalOscConfig extOscConfig = {
+      .frequency = 8000000
+  };
+  static const struct MainPllConfig mainPllConfig = {
+      .divisor = 1,
+      .multiplier = 9,
+      .source = CLOCK_EXTERNAL
+  };
+  static const struct SystemClockConfig systemClockConfigPll = {
+      .source = CLOCK_PLL
+  };
 
-  res = clockEnable(InternalLowSpeedOsc, NULL);
-  assert(res == E_OK);
+  if (clockEnable(InternalLowSpeedOsc, NULL) != E_OK)
+    return false;
   while (!clockReady(InternalLowSpeedOsc));
 
-  res = clockEnable(ExternalOsc, &extOscConfig);
-  assert(res == E_OK);
+  if (clockEnable(ExternalOsc, &extOscConfig) != E_OK)
+    return false;
   while (!clockReady(ExternalOsc));
 
-  res = clockEnable(MainPll, &mainPllConfig);
-  assert(res == E_OK);
+  if (clockEnable(MainPll, &mainPllConfig) != E_OK)
+    return false;
   while (!clockReady(MainPll));
 
-  clockEnable(Apb1Clock, &apbClockConfigSlow);
-  clockEnable(Apb2Clock, &apbClockConfigFast);
-  clockEnable(MainClock, &ahbClockConfig);
+  clockEnable(Apb1Clock, &(struct BusClockConfig){2});
+  clockEnable(Apb2Clock, &(struct BusClockConfig){1});
+  clockEnable(MainClock, &(struct BusClockConfig){1});
   clockEnable(SystemClock, &systemClockConfigPll);
 
-  /* Suppress warning */
-  (void)res;
+  return true;
 }
 /*----------------------------------------------------------------------------*/
 void boardSetup(struct Board *board)

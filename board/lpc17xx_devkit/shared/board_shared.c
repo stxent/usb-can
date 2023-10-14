@@ -36,75 +36,6 @@ static void customStringHeader(const void *, enum UsbLangId,
 static void customStringWrapper(const void *, enum UsbLangId,
     struct UsbDescriptor *, void *);
 /*----------------------------------------------------------------------------*/
-static const struct CanConfig canConfig = {
-    .rate = 10000,
-    .rxBuffers = 16,
-    .txBuffers = 48,
-    .rx = PIN(0, 0),
-    .tx = PIN(0, 1),
-    .priority = PRI_CAN,
-    .channel = 0
-};
-
-static const struct I2CConfig i2cConfig = {
-    .rate = 400000,
-    .scl = PIN(0, 11),
-    .sda = PIN(0, 10),
-    .priority = PRI_I2C,
-    .channel = 2
-};
-
-static const struct GpTimerConfig chronoTimerConfig = {
-    .frequency = 1000000,
-    .priority = PRI_CHRONO,
-    .channel = 0
-};
-
-static const struct GpTimerConfig eepromTimerConfig = {
-    .frequency = 1000000,
-    .priority = PRI_I2C,
-    .channel = 1
-};
-
-static const struct UsbDeviceConfig usbConfig = {
-    .dm = PIN(0, 30),
-    .dp = PIN(0, 29),
-    .connect = PIN(2, 9),
-    .vbus = PIN(1, 30),
-    .vid = 0x2404,
-    .pid = 0x03EB,
-    .priority = PRI_USB,
-    .channel = 0
-};
-
-static const struct WdtConfig wdtConfig = {
-    .period = 1000
-};
-/*----------------------------------------------------------------------------*/
-static const struct ExternalOscConfig extOscConfig = {
-    .frequency = 12000000
-};
-
-static const struct PllConfig sysPllConfig = {
-    .source = CLOCK_EXTERNAL,
-    .divisor = 3,
-    .multiplier = 25
-};
-
-static const struct PllConfig usbPllConfig = {
-    .source = CLOCK_EXTERNAL,
-    .divisor = 4,
-    .multiplier = 16
-};
-
-static const struct GenericClockConfig mainClockConfig = {
-    .source = CLOCK_PLL
-};
-
-static const struct GenericClockConfig usbClockConfig = {
-    .source = CLOCK_USB_PLL
-};
-/*----------------------------------------------------------------------------*/
 static void customStringHeader(const void *argument __attribute__((unused)),
     enum UsbLangId langid __attribute__((unused)),
     struct UsbDescriptor *header, void *payload)
@@ -119,39 +50,64 @@ static void customStringWrapper(const void *argument,
   usbStringWrap(header, payload, argument);
 }
 /*----------------------------------------------------------------------------*/
-void boardSetupClock(void)
+bool boardSetupClock(void)
 {
-  enum Result res;
+  static const struct ExternalOscConfig extOscConfig = {
+      .frequency = 12000000
+  };
+  static const struct PllConfig sysPllConfig = {
+      .divisor = 3,
+      .multiplier = 25,
+      .source = CLOCK_EXTERNAL
+  };
+  static const struct PllConfig usbPllConfig = {
+      .divisor = 4,
+      .multiplier = 16,
+      .source = CLOCK_EXTERNAL
+  };
 
-  res = clockEnable(ExternalOsc, &extOscConfig);
-  assert(res == E_OK);
+  if (clockEnable(ExternalOsc, &extOscConfig) != E_OK)
+    return false;
   while (!clockReady(ExternalOsc));
 
-  res = clockEnable(SystemPll, &sysPllConfig);
-  assert(res == E_OK);
+  if (clockEnable(SystemPll, &sysPllConfig) != E_OK)
+    return false;
   while (!clockReady(SystemPll));
 
-  res = clockEnable(UsbPll, &usbPllConfig);
-  assert(res == E_OK);
+  if (clockEnable(UsbPll, &usbPllConfig) != E_OK)
+    return false;
   while (!clockReady(UsbPll));
 
-  res = clockEnable(UsbClock, &usbClockConfig);
-  assert(res == E_OK);
-  while (!clockReady(UsbClock));
+  clockEnable(UsbClock, &(struct GenericClockConfig){CLOCK_USB_PLL});
+  clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_PLL});
 
-  clockEnable(MainClock, &mainClockConfig);
-
-  /* Suppress warning */
-  (void)res;
+  return true;
 }
 /*----------------------------------------------------------------------------*/
 struct Interface *boardMakeCan(void)
 {
+  static const struct CanConfig canConfig = {
+      .rate = 10000,
+      .rxBuffers = 32,
+      /* TX buffer count should be at least SERIALIZED_QUEUE_SIZE */
+      .txBuffers = 32,
+      .rx = PIN(0, 0),
+      .tx = PIN(0, 1),
+      .priority = PRI_CAN,
+      .channel = 0
+  };
+
   return init(Can, &canConfig);
 }
 /*----------------------------------------------------------------------------*/
 struct Timer *boardMakeChronoTimer(void)
 {
+  static const struct GpTimerConfig chronoTimerConfig = {
+      .frequency = 1000000,
+      .priority = PRI_CHRONO,
+      .channel = 0
+  };
+
   return init(GpTimer, &chronoTimerConfig);
 }
 /*----------------------------------------------------------------------------*/
@@ -172,6 +128,12 @@ struct Interface *boardMakeEeprom(struct Interface *bus, struct Timer *timer)
 /*----------------------------------------------------------------------------*/
 struct Timer *boardMakeEepromTimer(void)
 {
+  static const struct GpTimerConfig eepromTimerConfig = {
+      .frequency = 1000000,
+      .priority = PRI_I2C,
+      .channel = 1
+  };
+
   return init(GpTimer, &eepromTimerConfig);
 }
 /*----------------------------------------------------------------------------*/
@@ -182,6 +144,14 @@ struct Timer *boardMakeEventTimer(void)
 /*----------------------------------------------------------------------------*/
 struct Interface *boardMakeI2C(void)
 {
+  static const struct I2CConfig i2cConfig = {
+      .rate = 400000,
+      .scl = PIN(0, 11),
+      .sda = PIN(0, 10),
+      .priority = PRI_I2C,
+      .channel = 2
+  };
+
   return init(I2C, &i2cConfig);
 }
 /*----------------------------------------------------------------------------*/
@@ -205,6 +175,17 @@ struct Interface *boardMakeSerial(struct Entity *usb)
 /*----------------------------------------------------------------------------*/
 struct Entity *boardMakeUsb(const struct SerialNumber *number)
 {
+  static const struct UsbDeviceConfig usbConfig = {
+      .dm = PIN(0, 30),
+      .dp = PIN(0, 29),
+      .connect = PIN(2, 9),
+      .vbus = PIN(1, 30),
+      .vid = 0x2404,
+      .pid = 0x03EB,
+      .priority = PRI_USB,
+      .channel = 0
+  };
+
   /* USB Device */
   struct Entity * const usb = init(UsbDevice, &usbConfig);
 
@@ -212,7 +193,7 @@ struct Entity *boardMakeUsb(const struct SerialNumber *number)
     return NULL;
 
   /* USB Strings */
-  usbDevStringAppend(usb, usbStringBuild(customStringHeader, 0,
+  usbDevStringAppend(usb, usbStringBuild(customStringHeader, NULL,
       USB_STRING_HEADER, 0));
 
   if (strlen(getUsbVendorString()) > 0)
@@ -236,5 +217,9 @@ struct Entity *boardMakeUsb(const struct SerialNumber *number)
 /*----------------------------------------------------------------------------*/
 struct Watchdog *boardMakeWatchdog(void)
 {
+  static const struct WdtConfig wdtConfig = {
+      .period = 1000
+  };
+
   return init(Wdt, &wdtConfig);
 }

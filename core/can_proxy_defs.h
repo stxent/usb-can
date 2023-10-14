@@ -44,9 +44,16 @@ struct PackedNumber16
 } __attribute__((packed));
 
 #define RESPONSE_MTU          sizeof(struct PackedNumber16)
-#define SERIAL_MTU            512
 #define SERIALIZED_FRAME_MTU  sizeof(struct PackedExtFrame)
-#define SERIALIZED_QUEUE_SIZE 4
+
+#ifdef CONFIG_SERIAL_HS
+/* Serial over High-Speed USB */
+#  define SERIAL_MTU            512
+#  define SERIALIZED_QUEUE_SIZE 16
+#else
+#  define SERIAL_MTU            64
+#  define SERIALIZED_QUEUE_SIZE 2
+#endif
 /*----------------------------------------------------------------------------*/
 BEGIN_DECLS
 
