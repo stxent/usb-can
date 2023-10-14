@@ -22,7 +22,7 @@ struct SerialNumber;
 struct Timer;
 struct Watchdog;
 /*----------------------------------------------------------------------------*/
-void boardSetupClock(void);
+bool boardSetupClock(void);
 
 struct Interface *boardMakeCan(void);
 struct Timer *boardMakeChronoTimer(void);

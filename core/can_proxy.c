@@ -11,6 +11,7 @@
 #include "system.h"
 #include "version.h"
 #include <halm/generic/can.h>
+#include <halm/generic/serial.h>
 #include <halm/generic/work_queue.h>
 #include <halm/timer.h>
 #include <xcore/interface.h>
@@ -76,11 +77,12 @@ static void canToSerial(struct CanProxy *proxy)
 
   ifGetParam(proxy->serial, IF_TX_AVAILABLE, &capacity);
   capacity /= SERIALIZED_FRAME_MTU;
-  capacity = MIN(capacity, SERIALIZED_QUEUE_SIZE);
+  capacity = MIN(capacity, ARRAY_SIZE(frames));
 
   if (capacity > 0)
   {
-    const size_t count = ifRead(proxy->can, frames, sizeof(frames));
+    const size_t count = ifRead(proxy->can, frames,
+        capacity * sizeof(struct CANStandardMessage));
 
     if (count > 0)
     {
@@ -113,30 +115,24 @@ static void changePortMode(struct CanProxy *proxy, enum CanProxyMode mode)
 static bool deserializeFrame(struct CanProxy *proxy, const char *request,
     size_t length)
 {
-  size_t available;
+  struct CANStandardMessage message;
 
-  ifGetParam(proxy->serial, IF_TX_AVAILABLE, &available);
-
-  if (available > 0)
+  if (unpackFrame(request, length, &message))
   {
-    struct CANStandardMessage message;
-
-    if (unpackFrame(request, length, &message))
+    if (ifWrite(proxy->can, &message, sizeof(message) == sizeof(message)))
     {
-      ifWrite(proxy->can, &message, sizeof(message));
-
       proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_TX);
       return true;
     }
     else
     {
-      proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_SERIAL_ERROR);
+      proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_CAN_OVERRUN);
       return false;
     }
   }
   else
   {
-    proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_CAN_OVERRUN);
+    proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_SERIAL_ERROR);
     return false;
   }
 }
@@ -145,13 +141,21 @@ static void handleCanEvent(void *argument)
 {
   struct CanProxy * const proxy = argument;
   size_t rxAvailable;
+  size_t txAvailable;
 
   proxy->canEvent = false;
   ifGetParam(proxy->can, IF_RX_AVAILABLE, &rxAvailable);
+  ifGetParam(proxy->can, IF_TX_AVAILABLE, &txAvailable);
 
   if (rxAvailable > 0)
   {
     canToSerial(proxy);
+  }
+
+  if (txAvailable >= SERIALIZED_QUEUE_SIZE)
+  {
+    ifSetParam(proxy->serial, IF_SERIAL_RTS, &((uint8_t){1}));
+    readSerialInput(proxy);
   }
 }
 /*----------------------------------------------------------------------------*/
@@ -359,11 +363,20 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
 /*----------------------------------------------------------------------------*/
 static void readSerialInput(struct CanProxy *proxy)
 {
-  char buffer[SERIAL_MTU];
   size_t count;
 
-  while ((count = ifRead(proxy->serial, buffer, sizeof(buffer))) > 0)
+  do
   {
+    char buffer[SERIAL_MTU];
+    size_t available;
+    uint8_t ready;
+
+    ifGetParam(proxy->can, IF_TX_AVAILABLE, &available);
+    ready = available >= SERIALIZED_QUEUE_SIZE;
+    ifSetParam(proxy->serial, IF_SERIAL_RTS, &ready);
+
+    count = ifRead(proxy->serial, buffer, sizeof(buffer));
+
     for (size_t index = 0; index < count; ++index)
     {
       const char c = buffer[index];
@@ -400,16 +413,17 @@ static void readSerialInput(struct CanProxy *proxy)
       }
     }
   }
+  while (count > 0);
 }
 /*----------------------------------------------------------------------------*/
 static bool sendMessageGroup(struct CanProxy *proxy, uint8_t flags,
     size_t length, size_t count)
 {
+  uint32_t rate;
+
   if (proxy->chrono == NULL)
     return false;
-
-  uint32_t rate;
-  if (ifGetParam(proxy->can, IF_RATE, &rate) != E_OK)
+  if (ifGetParam(proxy->can, IF_RATE, &rate) != E_OK || rate == 0)
     return false;
 
   const uint32_t frameLength = calcFrameLength(flags, length);
@@ -492,7 +506,7 @@ static bool sendTestMessages(struct CanProxy *proxy, const char *request,
 static void serializeFrames(struct CanProxy *proxy,
     const struct CANStandardMessage *frames, size_t count)
 {
-  char response[SERIALIZED_QUEUE_SIZE * SERIALIZED_FRAME_MTU];
+  char response[SERIALIZED_FRAME_MTU * SERIALIZED_QUEUE_SIZE];
   size_t index = 0;
   size_t length = 0;
 

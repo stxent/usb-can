@@ -81,6 +81,7 @@ int main(void)
   struct Interface * const flash = init(Flash, NULL);
   assert(flash != NULL);
   const size_t regions = flashGetGeometry(flash, layout, ARRAY_SIZE(layout));
+  assert(regions != 0);
 
   struct Timer * const timer = boardMakeChronoTimer();
   assert(timer != NULL);

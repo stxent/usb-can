@@ -27,7 +27,7 @@ struct Board
   struct ProxyHub *hub;
 };
 /*----------------------------------------------------------------------------*/
-void boardSetupClock(void);
+bool boardSetupClock(void);
 void boardSetup(struct Board *);
 void boardStart(struct Board *);
 /*----------------------------------------------------------------------------*/
