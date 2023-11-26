@@ -59,7 +59,7 @@ BEGIN_DECLS
 
 uint32_t calcFrameLength(uint8_t, size_t);
 size_t packFrame(void *, const struct CANMessage *);
-size_t packNumber16(void *, uint16_t);
+size_t packNumber16(void *, char, uint16_t);
 bool unpackFrame(const void *, size_t, struct CANStandardMessage *);
 
 END_DECLS
