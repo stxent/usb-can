@@ -31,6 +31,7 @@ struct CanProxy
   void *argument;
 
   enum CanProxyMode mode;
+  bool blocking;
 
   struct
   {
@@ -39,8 +40,11 @@ struct CanProxy
     bool skip;
   } parser;
 
-  bool canEvent;
-  bool serialEvent;
+  struct
+  {
+    bool can;
+    bool serial;
+  } events;
 };
 /*----------------------------------------------------------------------------*/
 static void canToSerial(struct CanProxy *);
@@ -58,6 +62,7 @@ static bool sendMessageGroup(struct CanProxy *, uint8_t, size_t, size_t);
 static bool sendTestMessages(struct CanProxy *, const char *, size_t);
 static void serializeFrames(struct CanProxy *,
     const struct CANStandardMessage *, size_t);
+static bool setBlockingMode(struct CanProxy *, const char *);
 static bool setCustomRate(struct CanProxy *, const char *);
 static bool setPredefinedRate(struct CanProxy *, const char *);
 /*----------------------------------------------------------------------------*/
@@ -143,7 +148,7 @@ static void handleCanEvent(void *argument)
   size_t rxAvailable;
   size_t txAvailable;
 
-  proxy->canEvent = false;
+  proxy->events.can = false;
   ifGetParam(proxy->can, IF_RX_AVAILABLE, &rxAvailable);
   ifGetParam(proxy->can, IF_TX_AVAILABLE, &txAvailable);
 
@@ -165,7 +170,7 @@ static void handleSerialEvent(void *argument)
   size_t rxAvailable;
   size_t txAvailable;
 
-  proxy->serialEvent = false;
+  proxy->events.serial = false;
   ifGetParam(proxy->serial, IF_RX_AVAILABLE, &rxAvailable);
   ifGetParam(proxy->serial, IF_TX_AVAILABLE, &txAvailable);
 
@@ -192,10 +197,10 @@ static void onCanEventCallback(void *argument)
 {
   struct CanProxy * const proxy = argument;
 
-  if (!proxy->canEvent)
+  if (!proxy->events.can)
   {
     if (wqAdd(WQ_DEFAULT, handleCanEvent, argument) == E_OK)
-      proxy->canEvent = true;
+      proxy->events.can = true;
   }
 }
 /*----------------------------------------------------------------------------*/
@@ -203,10 +208,10 @@ static void onSerialEventCallback(void *argument)
 {
   struct CanProxy * const proxy = argument;
 
-  if (!proxy->serialEvent)
+  if (!proxy->events.serial)
   {
     if (wqAdd(WQ_DEFAULT, handleSerialEvent, argument) == E_OK)
-      proxy->serialEvent = true;
+      proxy->events.serial = true;
   }
 }
 /*----------------------------------------------------------------------------*/
@@ -220,6 +225,7 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
   {
     case 's':
     {
+      /* Custom command: set bit rate */
       if (length >= 5 && length <= 7 && setCustomRate(proxy, request))
         strcpy(response, "\r");
       else
@@ -229,6 +235,7 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
 
     case 'S':
     {
+      /* Set standard bit rate */
       if (length == 2 && setPredefinedRate(proxy, request))
         strcpy(response, "\r");
       else
@@ -248,15 +255,17 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
       break;
     }
 
-    case 'O':
+    case 'C':
     {
-      changePortMode(proxy, SLCAN_MODE_ACTIVE);
+      /* Close the channel */
+      changePortMode(proxy, SLCAN_MODE_DISABLED);
       strcpy(response, "\r");
       break;
     }
 
-    case 'I':
+    case 'l':
     {
+      /* Custom command: enable loopback mode */
       changePortMode(proxy, SLCAN_MODE_LOOPBACK);
       strcpy(response, "\r");
       break;
@@ -264,24 +273,31 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
 
     case 'L':
     {
+      /* Open the channel in listen only mode */
       changePortMode(proxy, SLCAN_MODE_LISTENER);
       strcpy(response, "\r");
       break;
     }
 
-    case 'C':
+    case 'O':
     {
-      changePortMode(proxy, SLCAN_MODE_DISABLED);
+      /* Open the channel in normal mode */
+      changePortMode(proxy, SLCAN_MODE_ACTIVE);
       strcpy(response, "\r");
       break;
     }
 
-    case 'X':
+    case 'F':
     {
-      if (sendTestMessages(proxy, request, length))
-        strcpy(response, "\r");
-      else
-        strcpy(response, "\a");
+      /* Read status flags */
+      strcpy(response, "z00\r");
+      break;
+    }
+
+    case 'W':
+    {
+      /* Filter mode settings */
+      strcpy(response, "\r");
       break;
     }
 
@@ -291,32 +307,43 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
       break;
     }
 
-    case 'V':
-    {
-      /* Get hardware version */
-      const struct BoardVersion * const ver = getBoardVersion();
-      return packNumber16(response, (ver->hw.major << 8) | ver->hw.minor);
-    }
-
-    case 'v':
-    {
-      /* Get software version */
-      const struct BoardVersion * const ver = getBoardVersion();
-      return packNumber16(response, (ver->sw.major << 8) | ver->sw.minor);
-    }
-
     case 'N':
     {
-      /* Get the serial number */
-      if (proxy->storage == NULL)
-        return packNumber16(response, 0xFFFF);
+      /* Read the serial number */
+      const uint16_t number = proxy->storage != NULL ?
+          (uint16_t)proxy->storage->values.serial : 0xFFFF;
+
+      return packNumber16(response, 'N', number);
+    }
+
+    case 'V':
+    {
+      /* Read hardware version */
+      const struct BoardVersion * const ver = getBoardVersion();
+      return packNumber16(response, 'V', (ver->hw.major << 8) | ver->hw.minor);
+    }
+
+    case 'b':
+    {
+      /* Custom command: enable or disable blocking mode */
+      if (length == 2 && setBlockingMode(proxy, request))
+        strcpy(response, "\r");
       else
-        return packNumber16(response, (uint16_t)proxy->storage->values.serial);
+        strcpy(response, "\a");
+      break;
+    }
+
+    case 'B':
+    {
+      /* Custom command: reset to bootloader */
+      resetToBootloader();
+      strcpy(response, "\a");
+      break;
     }
 
     case 'n':
     {
-      /* Set the serial number */
+      /* Custom command: set the serial number */
       if (length == 5 && proxy->storage != NULL
           && !isSerialNumberValid(proxy->storage->values.serial))
       {
@@ -332,22 +359,20 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
       break;
     }
 
-    case 'B':
+    case 'v':
     {
-      resetToBootloader();
-      strcpy(response, "\a");
-      break;
+      /* Custom command: read software version */
+      const struct BoardVersion * const ver = getBoardVersion();
+      return packNumber16(response, 'v', (ver->sw.major << 8) | ver->sw.minor);
     }
 
-    case 'F':
+    case 'x':
     {
-      strcpy(response, "z00\r");
-      break;
-    }
-
-    case 'W':
-    {
-      strcpy(response, "\r");
+      /* Custom command: send test sequence */
+      if (sendTestMessages(proxy, request, length))
+        strcpy(response, "\r");
+      else
+        strcpy(response, "\a");
       break;
     }
 
@@ -374,6 +399,9 @@ static void readSerialInput(struct CanProxy *proxy)
     ifGetParam(proxy->can, IF_TX_AVAILABLE, &available);
     ready = available >= SERIALIZED_QUEUE_SIZE;
     ifSetParam(proxy->serial, IF_SERIAL_RTS, &ready);
+
+    if (proxy->blocking && available < SERIALIZED_QUEUE_SIZE)
+      break;
 
     count = ifRead(proxy->serial, buffer, sizeof(buffer));
 
@@ -524,6 +552,22 @@ static void serializeFrames(struct CanProxy *proxy,
       SLCAN_EVENT_RX : SLCAN_EVENT_SERIAL_OVERRUN);
 }
 /*----------------------------------------------------------------------------*/
+static bool setBlockingMode(struct CanProxy *proxy, const char *request)
+{
+  if (request[1] == '0')
+  {
+    proxy->blocking = false;
+    return true;
+  }
+  else if (request[1] == '1')
+  {
+    proxy->blocking = true;
+    return true;
+  }
+  else
+    return false;
+}
+/*----------------------------------------------------------------------------*/
 static bool setCustomRate(struct CanProxy *proxy, const char *request)
 {
   uint32_t rate = 0;
@@ -577,10 +621,11 @@ static enum Result proxyInit(void *object, const void *configBase)
   proxy->callback = config->callback ? config->callback : mockEventHandler;
   proxy->argument = config->argument;
   proxy->mode = SLCAN_MODE_DISABLED;
+  proxy->blocking = false;
   proxy->parser.position = 0;
   proxy->parser.skip = false;
-  proxy->canEvent = false;
-  proxy->serialEvent = false;
+  proxy->events.can = false;
+  proxy->events.serial = false;
 
   ifSetCallback(proxy->can, onCanEventCallback, proxy);
   ifSetCallback(proxy->serial, onSerialEventCallback, proxy);

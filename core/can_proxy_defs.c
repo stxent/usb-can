@@ -134,11 +134,11 @@ size_t packFrame(void *buffer, const struct CANMessage *message)
   }
 }
 /*----------------------------------------------------------------------------*/
-size_t packNumber16(void *buffer, uint16_t value)
+size_t packNumber16(void *buffer, char prefix, uint16_t value)
 {
   struct PackedNumber16 * const response = buffer;
 
-  response->prefix = 'z';
+  response->prefix = prefix;
   response->number = binToHex4(value);
   response->eof = '\r';
 
