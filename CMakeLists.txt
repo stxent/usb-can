@@ -2,8 +2,6 @@
 # Project is distributed under the terms of the GNU General Public License v3.0
 
 cmake_minimum_required(VERSION 3.21)
-cmake_policy(SET CMP0054 NEW)
-cmake_policy(SET CMP0069 NEW)
 project(USB2CAN C)
 
 option(USE_DFU "Use memory layout for the bootloader." OFF)
@@ -11,18 +9,14 @@ option(USE_LTO "Enable Link Time Optimization." OFF)
 option(USE_WDT "Enable Watchdog Timer." OFF)
 
 # Default compiler flags
-set(FLAGS_DEFAULT "-pedantic -Wall -Wextra -Wshadow")
-set(FLAGS_PROJECT "-fdata-sections -ffunction-sections")
+set(FLAGS_PROJECT "-fdata-sections -ffunction-sections -pedantic -Wall -Wextra -Wshadow")
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_C_FLAGS_INIT "${CMAKE_C_FLAGS_INIT} ${FLAGS_DEFAULT}")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS_INIT} ${FLAGS_PROJECT} ${FLAGS_CPU}")
-set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 
 if(USE_LTO)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
     if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
-        set(CMAKE_C_COMPILE_OPTIONS_IPO -flto -ffat-lto-objects)
+        set(CMAKE_C_COMPILE_OPTIONS_IPO -flto=auto -ffat-lto-objects)
     endif()
 endif()
 
