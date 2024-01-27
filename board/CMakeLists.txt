@@ -32,6 +32,7 @@ list(APPEND SHARED_SOURCES "${PROJECT_BINARY_DIR}/version.c")
 # Shared package
 add_library(shared ${SHARED_SOURCES})
 target_include_directories(shared PUBLIC "${BOARD}/shared")
+target_link_options(shared PUBLIC SHELL:${FLAGS_CPU} SHELL:${FLAGS_LINKER})
 # Shared library depends on includes from core library
 target_link_libraries(shared PUBLIC core)
 # Core library depends on version functions from shared library
@@ -40,7 +41,8 @@ target_link_libraries(core PRIVATE shared)
 # Main application package
 add_library(application OBJECT ${APPLICATION_SOURCES})
 target_include_directories(application PRIVATE "${BOARD}/application")
-target_link_libraries(application PRIVATE shared ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/application.ld")
+target_link_options(application PUBLIC SHELL:-T"${PROJECT_BINARY_DIR}/application.ld")
+target_link_libraries(application PRIVATE shared)
 
 if(USB_HS)
     target_compile_definitions(application PRIVATE -DCONFIG_SERIAL_HS)
@@ -53,5 +55,6 @@ endif()
 if(BOOTLOADER_SOURCES)
     add_library(bootloader OBJECT ${BOOTLOADER_SOURCES})
     target_include_directories(bootloader PRIVATE "${BOARD}/bootloader")
-    target_link_libraries(bootloader PRIVATE shared ${FLAGS_LINKER} -T"${PROJECT_BINARY_DIR}/bootloader.ld")
+    target_link_options(bootloader PUBLIC SHELL:-T"${PROJECT_BINARY_DIR}/bootloader.ld")
+    target_link_libraries(bootloader PRIVATE shared)
 endif()
