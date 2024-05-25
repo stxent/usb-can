@@ -10,7 +10,7 @@
 /*----------------------------------------------------------------------------*/
 static void onTimerEventCallback(void *argument)
 {
-  static const unsigned int EVENT_ITERATIONS = 25;
+  static const unsigned int eventRateDecimation = 25;
   static unsigned int iteration = 0;
   static bool phase = true;
 
@@ -20,7 +20,7 @@ static void onTimerEventCallback(void *argument)
 
   if (!iteration--)
   {
-    iteration = EVENT_ITERATIONS;
+    iteration = eventRateDecimation;
     phase = !phase;
     blink = true;
   }

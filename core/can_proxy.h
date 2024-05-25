@@ -24,13 +24,13 @@ enum CanProxyEvent
   SLCAN_EVENT_SERIAL_OVERRUN
 };
 
-enum CanProxyMode
+enum [[gnu::packed]] CanProxyMode
 {
   SLCAN_MODE_DISABLED,
   SLCAN_MODE_ACTIVE,
   SLCAN_MODE_LISTENER,
   SLCAN_MODE_LOOPBACK
-} __attribute__((packed));
+};
 
 typedef void (*ProxyCallback)(void *, enum CanProxyMode, enum CanProxyEvent);
 

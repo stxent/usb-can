@@ -21,9 +21,9 @@ struct ParamStorage
   struct Interface *memory;
   uint32_t offset;
 
-  struct {
+  struct [[gnu::packed]] {
     uint64_t serial;
-  } __attribute__((packed)) values;
+  } values;
 };
 /*----------------------------------------------------------------------------*/
 static inline bool isSerialNumberValid(uint64_t number)

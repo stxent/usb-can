@@ -124,7 +124,7 @@ static bool deserializeFrame(struct CanProxy *proxy, const char *request,
 
   if (unpackFrame(request, length, &message))
   {
-    if (ifWrite(proxy->can, &message, sizeof(message) == sizeof(message)))
+    if (ifWrite(proxy->can, &message, sizeof(message)) == sizeof(message))
     {
       proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_TX);
       return true;
@@ -185,12 +185,8 @@ static void handleSerialEvent(void *argument)
   }
 }
 /*----------------------------------------------------------------------------*/
-static void mockEventHandler(void *argument, enum CanProxyMode mode,
-    enum CanProxyEvent event)
+static void mockEventHandler(void *, enum CanProxyMode, enum CanProxyEvent)
 {
-  (void)argument;
-  (void)mode;
-  (void)event;
 }
 /*----------------------------------------------------------------------------*/
 static void onCanEventCallback(void *argument)
@@ -487,8 +483,8 @@ static bool sendTestMessages(struct CanProxy *proxy, const char *request,
     uint8_t length;
   };
 
-  static const size_t GROUP_SIZE = 1000;
-  static const struct GroupSettings GROUP_SETTINGS[] = {
+  static const size_t testGroupSize = 1000;
+  static const struct GroupSettings testGroupSettings[] = {
       /* Standard frames with empty data field */
       {0, 0},
       /* Standard frames with 64-bit data field */
@@ -507,10 +503,10 @@ static bool sendTestMessages(struct CanProxy *proxy, const char *request,
   {
     bool completed = true;
 
-    for (size_t i = 0; completed && (i < ARRAY_SIZE(GROUP_SETTINGS)); ++i)
+    for (size_t i = 0; completed && (i < ARRAY_SIZE(testGroupSettings)); ++i)
     {
-      completed = sendMessageGroup(proxy, GROUP_SETTINGS[i].flags,
-          GROUP_SETTINGS[i].length, GROUP_SIZE);
+      completed = sendMessageGroup(proxy, testGroupSettings[i].flags,
+          testGroupSettings[i].length, testGroupSize);
     }
 
     return completed;
@@ -519,10 +515,10 @@ static bool sendTestMessages(struct CanProxy *proxy, const char *request,
   {
     const unsigned int code = hexToBin(request[1]);
 
-    if (code < ARRAY_SIZE(GROUP_SETTINGS))
+    if (code < ARRAY_SIZE(testGroupSettings))
     {
-      return sendMessageGroup(proxy, GROUP_SETTINGS[code].flags,
-          GROUP_SETTINGS[code].length, GROUP_SIZE);
+      return sendMessageGroup(proxy, testGroupSettings[code].flags,
+          testGroupSettings[code].length, testGroupSize);
     }
     else
       return false;
@@ -535,16 +531,10 @@ static void serializeFrames(struct CanProxy *proxy,
     const struct CANStandardMessage *frames, size_t count)
 {
   char response[SERIALIZED_FRAME_MTU * SERIALIZED_QUEUE_SIZE];
-  size_t index = 0;
   size_t length = 0;
 
-  while (index < count)
-  {
-    const struct CANMessage * const frame =
-        (const struct CANMessage *)&frames[index++];
-
-    length += packFrame(response + length, frame);
-  }
+  for (size_t i = 0; i < count; ++i)
+    length += packFrame(response + length, frames + i);
 
   const size_t written = ifWrite(proxy->serial, response, length);
 
@@ -580,7 +570,7 @@ static bool setCustomRate(struct CanProxy *proxy, const char *request)
 /*----------------------------------------------------------------------------*/
 static bool setPredefinedRate(struct CanProxy *proxy, const char *request)
 {
-  static const uint32_t BAUDRATE_TABLE[] = {
+  static const uint32_t baudrateMap[] = {
       10000,
       20000,
       50000,
@@ -594,9 +584,9 @@ static bool setPredefinedRate(struct CanProxy *proxy, const char *request)
 
   const unsigned int code = hexToBin(request[1]);
 
-  if (code < ARRAY_SIZE(BAUDRATE_TABLE))
+  if (code < ARRAY_SIZE(baudrateMap))
   {
-    return ifSetParam(proxy->can, IF_RATE, &BAUDRATE_TABLE[code]) == E_OK;
+    return ifSetParam(proxy->can, IF_RATE, &baudrateMap[code]) == E_OK;
   }
   else
   {

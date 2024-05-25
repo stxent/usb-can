@@ -30,20 +30,20 @@
 #define PRI_TIMER   1
 /* PRI_WQ_LP 0 */
 /*----------------------------------------------------------------------------*/
+[[gnu::section(".shared")]] static struct ClockSettings sharedClockSettings;
+/*----------------------------------------------------------------------------*/
 static void customStringHeader(const void *, enum UsbLangId,
     struct UsbDescriptor *, void *);
 static void customStringWrapper(const void *, enum UsbLangId,
     struct UsbDescriptor *, void *);
 /*----------------------------------------------------------------------------*/
-static void customStringHeader(const void *argument __attribute__((unused)),
-    enum UsbLangId langid __attribute__((unused)),
+static void customStringHeader(const void *, enum UsbLangId,
     struct UsbDescriptor *header, void *payload)
 {
   usbStringHeader(header, payload, LANGID_ENGLISH_US);
 }
 /*----------------------------------------------------------------------------*/
-static void customStringWrapper(const void *argument,
-    enum UsbLangId langid __attribute__((unused)),
+static void customStringWrapper(const void *argument, enum UsbLangId,
     struct UsbDescriptor *header, void *payload)
 {
   usbStringWrap(header, payload, argument);
@@ -56,7 +56,7 @@ bool boardSetupClock(void)
       .multiplier = 40,
       .source = CLOCK_EXTERNAL
   };
-  static const struct GenericDividerConfig divCConfig = {
+  static const struct GenericDividerConfig divConfig = {
       .divisor = 3,
       .source = CLOCK_AUDIO_PLL
   };
@@ -74,27 +74,34 @@ bool boardSetupClock(void)
       .source = CLOCK_EXTERNAL
   };
 
-  clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_INTERNAL});
+  const bool clockSettingsLoaded = loadClockSettings(&sharedClockSettings);
 
-  if (clockEnable(ExternalOsc, &extOscConfig) != E_OK)
-    return false;
-  while (!clockReady(ExternalOsc));
+  if (!clockSettingsLoaded)
+  {
+    clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_INTERNAL});
+
+    if (clockEnable(ExternalOsc, &extOscConfig) != E_OK)
+      return false;
+    while (!clockReady(ExternalOsc));
+
+    if (clockEnable(SystemPll, &sysPllConfig) != E_OK)
+      return false;
+    while (!clockReady(SystemPll));
+  }
+
+  /* Divider D may be used by bootloader to configure SPIM clock */
 
   /* Make 120 MHz clock on AUDIO PLL */
   if (clockEnable(AudioPll, &audioPllConfig) != E_OK)
     return false;
   while (!clockReady(AudioPll));
 
-  if (clockEnable(SystemPll, &sysPllConfig) != E_OK)
-    return false;
-  while (!clockReady(SystemPll));
-
   if (clockEnable(UsbPll, &usbPllConfig) != E_OK)
     return false;
   while (!clockReady(UsbPll));
 
   /* Make 40 MHz clock for CAN, clock should be less than 50 MHz */
-  if (clockEnable(DividerC, &divCConfig) != E_OK)
+  if (clockEnable(DividerC, &divConfig) != E_OK)
     return false;
   while (!clockReady(DividerC));
 

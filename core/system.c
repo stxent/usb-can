@@ -6,7 +6,8 @@
 
 #include "system.h"
 /*----------------------------------------------------------------------------*/
-void resetToBootloader(void) __attribute__((weak));
+[[gnu::weak]] void resetToBootloader(void);
+
 void resetToBootloader(void)
 {
 }

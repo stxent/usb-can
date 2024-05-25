@@ -8,4 +8,4 @@ set(STRING_VENDOR "Private" PARENT_SCOPE)
 set(STRING_PRODUCT "BluePill" PARENT_SCOPE)
 
 # Linker script for an application
-configure_file("memory.ld" "${PROJECT_BINARY_DIR}/application.ld")
+configure_file("memory.ld" "${PROJECT_BINARY_DIR}/memory.ld")

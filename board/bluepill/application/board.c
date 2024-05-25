@@ -8,7 +8,7 @@
 #include "led_indicator.h"
 #include <halm/core/cortex/nvic.h>
 #include <halm/core/cortex/systick.h>
-#include <halm/generic/software_timer_32.h>
+#include <halm/generic/lifetime_timer_32.h>
 #include <halm/platform/stm32/can.h>
 #include <halm/platform/stm32/clocking.h>
 #include <halm/platform/stm32/gptimer.h>
@@ -138,10 +138,10 @@ void boardSetup(struct Board *board)
   timerSetOverflow(board->eventTimer,
       timerGetFrequency(board->eventTimer) / EVENT_RATE);
 
-  const struct SoftwareTimer32Config chronoTimerConfig = {
+  const struct LifetimeTimer32Config chronoTimerConfig = {
       .timer = board->baseTimer
   };
-  board->chronoTimer = init(SoftwareTimer32, &chronoTimerConfig);
+  board->chronoTimer = init(LifetimeTimer32, &chronoTimerConfig);
   assert(board->chronoTimer != NULL);
 
   /* CAN */

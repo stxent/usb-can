@@ -8,49 +8,69 @@
 #include "helpers.h"
 #include <halm/generic/can.h>
 /*----------------------------------------------------------------------------*/
-static size_t packExtFrame(void *, const struct CANMessage *);
-static size_t packStdFrame(void *, const struct CANMessage *);
+static size_t packExtFrame(void *, const struct CANStandardMessage *);
+static size_t packStdFrame(void *, const struct CANStandardMessage *);
 static bool unpackExtFrame(const void *, size_t, struct CANStandardMessage *);
 static bool unpackStdFrame(const void *, size_t, struct CANStandardMessage *);
 /*----------------------------------------------------------------------------*/
-static size_t packExtFrame(void *buffer, const struct CANMessage *message)
+static size_t packExtFrame(void *buffer,
+    const struct CANStandardMessage *message)
 {
-  struct PackedExtFrame * const frame = buffer;
-  const size_t length = offsetof(struct PackedExtFrame, data)
-      + (message->length << 1);
+  uint8_t *frame = buffer;
+  uint32_t word;
 
-  frame->type = (message->flags & CAN_RTR) ? 'R' : 'T';
-  frame->id[0] = binToHex4(message->id >> 16);
-  frame->id[1] = binToHex4(message->id);
-  frame->length = binToHex(message->length);
+  *frame++ = (message->flags & CAN_RTR) ? 'R' : 'T';
+
+  word = binToHex4(message->id >> 16);
+  memcpy(frame, &word, sizeof(word));
+  frame += sizeof(word);
+
+  word = binToHex4(message->id);
+  memcpy(frame, &word, sizeof(word));
+  frame += sizeof(word);
+
+  *frame++ = binToHex(message->length);
+
+  uint8_t * const eof = frame + message->length * 2;
 
   for (size_t i = 0; i < message->length; i += 2)
   {
     const uint16_t pair = message->data[i + 1] | (message->data[i] << 8);
-    frame->data[i >> 1] = binToHex4(pair);
+
+    word = binToHex4(pair);
+    memcpy(frame, &word, sizeof(word));
+    frame += sizeof(word);
   }
 
-  *((uint8_t *)buffer + length) = '\r';
-  return length + 1;
+  *eof = '\r';
+  return (eof - (uint8_t *)buffer) + 1;
 }
 /*----------------------------------------------------------------------------*/
-static size_t packStdFrame(void *buffer, const struct CANMessage *message)
+static size_t packStdFrame(void *buffer,
+    const struct CANStandardMessage *message)
 {
-  struct PackedStdFrame * const frame = buffer;
-  const size_t length = offsetof(struct PackedStdFrame, data)
-      + (message->length << 1);
+  uint8_t *frame = buffer;
+  uint32_t word;
 
-  frame->type = (message->flags & CAN_RTR) ? 'r' : 't';
-  frame->joinedIdLength = binToHex4((message->id << 4) | message->length);
+  *frame++ = (message->flags & CAN_RTR) ? 'r' : 't';
+
+  word = binToHex4((message->id << 4) | message->length);
+  memcpy(frame, &word, sizeof(word));
+  frame += sizeof(word);
+
+  uint8_t * const eof = frame + message->length * 2;
 
   for (size_t i = 0; i < message->length; i += 2)
   {
     const uint16_t pair = message->data[i + 1] | (message->data[i] << 8);
-    frame->data[i >> 1] = binToHex4(pair);
+
+    word = binToHex4(pair);
+    memcpy(frame, &word, sizeof(word));
+    frame += sizeof(word);
   }
 
-  *((uint8_t *)buffer + length) = '\r';
-  return length + 1;
+  *eof = '\r';
+  return (eof - (uint8_t *)buffer) + 1;
 }
 /*----------------------------------------------------------------------------*/
 static bool unpackExtFrame(const void *request, size_t length,
@@ -59,18 +79,25 @@ static bool unpackExtFrame(const void *request, size_t length,
   if (length < EXT_DATA_OFFSET)
     return false;
 
-  const struct PackedExtFrame * const frame = request;
+  const uint8_t *frame = request;
+  const char type = (char)*frame;
 
-  message->id = (hexToBin4(frame->id[0]) << 16) | hexToBin4(frame->id[1]);
-  message->flags = frame->type == 'R' ? (CAN_EXT_ID | CAN_RTR) : CAN_EXT_ID;
-  message->length = hexToBin(frame->length);
+  message->flags = type == 'R' ? (CAN_EXT_ID | CAN_RTR) : CAN_EXT_ID;
+  frame += sizeof(uint8_t);
+  message->id = (inPlaceHexToBin4(frame) << 16) | inPlaceHexToBin4(frame + 4);
+  frame += sizeof(uint32_t) * 2;
+  message->length = hexToBin(*frame);
+  frame += sizeof(uint8_t);
 
-  if (frame->type == 'T' && message->length > (length - EXT_DATA_OFFSET) >> 1)
+  if (message->length > 8)
+    return false;
+  if (type == 'T' && message->length > (length - EXT_DATA_OFFSET) >> 1)
     return false;
 
   for (size_t i = 0; i < message->length; i += 2)
   {
-    const uint16_t pair = hexToBin4(frame->data[i >> 1]);
+    const uint16_t pair = inPlaceHexToBin4(frame);
+    frame += sizeof(uint32_t);
 
     message->data[i] = pair >> 8;
     message->data[i + 1] = pair;
@@ -85,19 +112,24 @@ static bool unpackStdFrame(const void *request, size_t length,
   if (length < STD_DATA_OFFSET)
     return false;
 
-  const struct PackedStdFrame * const frame = request;
-  const uint16_t joinedIdLength = hexToBin4(frame->joinedIdLength);
+  const uint8_t *frame = request;
+  const char type = (char)*frame;
+  const uint16_t joinedIdLength = inPlaceHexToBin4(frame + 1);
 
   message->id = joinedIdLength >> 4;
-  message->flags = frame->type == 'r' ? CAN_RTR : 0;
+  message->flags = type == 'r' ? CAN_RTR : 0;
   message->length = joinedIdLength & 0x000F;
 
-  if (frame->type == 't' && message->length > (length - STD_DATA_OFFSET) >> 1)
+  if (message->length > 8)
+    return false;
+  if (type == 't' && message->length > (length - STD_DATA_OFFSET) >> 1)
     return false;
 
+  frame += STD_DATA_OFFSET;
   for (size_t i = 0; i < message->length; i += 2)
   {
-    const uint16_t pair = hexToBin4(frame->data[i >> 1]);
+    const uint16_t pair = inPlaceHexToBin4(frame);
+    frame += sizeof(uint32_t);
 
     message->data[i] = pair >> 8;
     message->data[i + 1] = pair;
@@ -122,7 +154,7 @@ uint32_t calcFrameLength(uint8_t flags, size_t dlc)
   return length;
 }
 /*----------------------------------------------------------------------------*/
-size_t packFrame(void *buffer, const struct CANMessage *message)
+size_t packFrame(void *buffer, const struct CANStandardMessage *message)
 {
   if (message->flags & CAN_EXT_ID)
   {
@@ -136,13 +168,14 @@ size_t packFrame(void *buffer, const struct CANMessage *message)
 /*----------------------------------------------------------------------------*/
 size_t packNumber16(void *buffer, char prefix, uint16_t value)
 {
-  struct PackedNumber16 * const response = buffer;
+  const struct PackedNumber16 response = {
+      .prefix = prefix,
+      .number = binToHex4(value),
+      .eof = '\r'
+  };
 
-  response->prefix = prefix;
-  response->number = binToHex4(value);
-  response->eof = '\r';
-
-  return sizeof(struct PackedNumber16);
+  memcpy(buffer, &response, sizeof(response));
+  return sizeof(response);
 }
 /*----------------------------------------------------------------------------*/
 bool unpackFrame(const void *buffer, size_t length,

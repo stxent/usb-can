@@ -12,39 +12,24 @@
 #include <stdint.h>
 #include <xcore/helpers.h>
 /*----------------------------------------------------------------------------*/
-struct CANMessage;
 struct CANStandardMessage;
 
-struct PackedExtFrame
-{
-  uint8_t type;
-  uint32_t id[2];
-  uint8_t length;
-  uint32_t data[4];
-  uint8_t eof;
-} __attribute__((packed));
+/* Type (1) + ID (4 * 2) + Length (1) */
+#define EXT_DATA_OFFSET (1 + 4 * 2 + 1)
+/* Data Offset + Data (2 * 8) + EOF (1) */
+#define EXT_MAX_LENGTH  (EXT_DATA_OFFSET + 2 * 8 + 1)
+/* Type (1) + ID (3) + Length (1) */
+#define STD_DATA_OFFSET (1 + 3 + 1)
 
-#define EXT_DATA_OFFSET offsetof(struct PackedExtFrame, data)
-
-struct PackedStdFrame
-{
-  uint8_t type;
-  uint32_t joinedIdLength;
-  uint32_t data[4];
-  uint8_t eof;
-} __attribute__((packed));
-
-#define STD_DATA_OFFSET offsetof(struct PackedStdFrame, data)
-
-struct PackedNumber16
+struct [[gnu::packed]] PackedNumber16
 {
   uint8_t prefix;
   uint32_t number;
   uint8_t eof;
-} __attribute__((packed));
+};
 
 #define RESPONSE_MTU          sizeof(struct PackedNumber16)
-#define SERIALIZED_FRAME_MTU  sizeof(struct PackedExtFrame)
+#define SERIALIZED_FRAME_MTU  EXT_MAX_LENGTH
 
 #ifdef CONFIG_SERIAL_HS
 /* Serial over High-Speed USB */
@@ -58,7 +43,7 @@ struct PackedNumber16
 BEGIN_DECLS
 
 uint32_t calcFrameLength(uint8_t, size_t);
-size_t packFrame(void *, const struct CANMessage *);
+size_t packFrame(void *, const struct CANStandardMessage *);
 size_t packNumber16(void *, char, uint16_t);
 bool unpackFrame(const void *, size_t, struct CANStandardMessage *);
 

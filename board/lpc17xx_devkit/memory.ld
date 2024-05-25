@@ -6,18 +6,21 @@
 ENTRY(RESET_ISR)
 EXTERN(vectorTable)
 
+/* Suppress newlib warnings */
+EXTERN(__assert_func)
+
 MEMORY
 {
-  /* Internal Flash */
-  FLASH (rx) : ORIGIN = ${FLASH_ORIGIN}, LENGTH = ${FLASH_LENGTH}
-  /* AHB SRAM0 */
-  RAM (rwx)  : ORIGIN = 0x2007C000, LENGTH = 16K
+  ROM (rx)  : ORIGIN = ${ROM_ORIGIN}, LENGTH = ${ROM_LENGTH}
 
-  GPIO (rw)  : ORIGIN = 0x2009C000, LENGTH = 16K
-  APB0 (rw)  : ORIGIN = 0x40000000, LENGTH = 512K
-  APB1 (rw)  : ORIGIN = 0x40080000, LENGTH = 512K
-  AHB (rw)   : ORIGIN = 0x50000000, LENGTH = 2M
-  PPB (rw)   : ORIGIN = 0xE0000000, LENGTH = 1M
+  GPIO (rw) : ORIGIN = 0x2009C000, LENGTH = 16K
+  APB0 (rw) : ORIGIN = 0x40000000, LENGTH = 512K
+  APB1 (rw) : ORIGIN = 0x40080000, LENGTH = 512K
+  AHB (rw)  : ORIGIN = 0x50000000, LENGTH = 2M
+  PPB (rw)  : ORIGIN = 0xE0000000, LENGTH = 1M
+
+  /* Local SRAM */
+  SRAM0 (rwx) : ORIGIN = 0x10000000, LENGTH = 16K
 }
 
 SECTIONS
@@ -36,7 +39,7 @@ SECTIONS
 
     . = ALIGN(4);
     _sidata = .;
-  } >FLASH =0xFF
+  } >ROM =0xFF
 
   .data : AT(_sidata) ALIGN(4)
   {
@@ -46,7 +49,7 @@ SECTIONS
     *(.data*)
 
     _edata = .;
-  } >RAM
+  } >SRAM0
 
   .bss : ALIGN(4)
   {
@@ -60,7 +63,7 @@ SECTIONS
 
     . = ALIGN(4);
     heapStart = .;
-  } >RAM
+  } >SRAM0
 
   .gpio :
   {
@@ -100,7 +103,5 @@ SECTIONS
   }
 
   PROVIDE(end = heapStart);
-  PROVIDE(_stack = ORIGIN(RAM) + LENGTH(RAM));
-
-  PROVIDE(_firmware = LENGTH(FLASH));
+  PROVIDE(_stack = ORIGIN(SRAM0) + LENGTH(SRAM0));
 }
