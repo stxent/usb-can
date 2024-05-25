@@ -25,7 +25,6 @@ configure_file("version_template.c" "${PROJECT_BINARY_DIR}/version.c")
 
 # Find source files
 file(GLOB_RECURSE APPLICATION_SOURCES "${BOARD}/application/*.c")
-file(GLOB_RECURSE BOOTLOADER_SOURCES "${BOARD}/bootloader/*.c")
 file(GLOB_RECURSE SHARED_SOURCES "${BOARD}/shared/*.c")
 list(APPEND SHARED_SOURCES "${PROJECT_BINARY_DIR}/version.c")
 
@@ -33,28 +32,31 @@ list(APPEND SHARED_SOURCES "${PROJECT_BINARY_DIR}/version.c")
 add_library(shared ${SHARED_SOURCES})
 target_include_directories(shared PUBLIC "${BOARD}/shared")
 target_link_options(shared PUBLIC SHELL:${FLAGS_CPU} SHELL:${FLAGS_LINKER})
-# Shared library depends on includes from core library
+# Shared library depends on includes from the core library
 target_link_libraries(shared PUBLIC core)
-# Core library depends on version functions from shared library
+# Core library depends on version functions from the shared library
 target_link_libraries(core PRIVATE shared)
 
 # Main application package
 add_library(application OBJECT ${APPLICATION_SOURCES})
 target_include_directories(application PRIVATE "${BOARD}/application")
-target_link_options(application PUBLIC SHELL:-T"${PROJECT_BINARY_DIR}/application.ld")
+target_link_options(application PUBLIC SHELL:-T"${PROJECT_BINARY_DIR}/memory.ld")
 target_link_libraries(application PRIVATE shared)
 
 if(USB_HS)
-    target_compile_definitions(application PRIVATE -DCONFIG_SERIAL_HS)
+    # Enable support for High Speed buffers in the core library
+    target_compile_definitions(core PRIVATE -DCONFIG_SERIAL_HS)
+endif()
+if(USE_DBG)
+    target_compile_definitions(application PRIVATE -DENABLE_DBG)
+    target_link_options(application PUBLIC SHELL:"-Wl,--print-memory-usage")
 endif()
 if(USE_WDT)
     target_compile_definitions(application PRIVATE -DENABLE_WDT)
 endif()
 
-# Bootloader package
-if(BOOTLOADER_SOURCES)
-    add_library(bootloader OBJECT ${BOOTLOADER_SOURCES})
-    target_include_directories(bootloader PRIVATE "${BOARD}/bootloader")
-    target_link_options(bootloader PUBLIC SHELL:-T"${PROJECT_BINARY_DIR}/bootloader.ld")
-    target_link_libraries(bootloader PRIVATE shared)
-endif()
+add_executable("application.elf" $<TARGET_OBJECTS:application>)
+target_link_libraries("application.elf" PRIVATE application)
+add_custom_command(TARGET "application.elf" POST_BUILD
+        COMMAND "${CMAKE_OBJCOPY}" "application.elf" -Obinary "application.bin"
+)

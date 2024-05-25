@@ -6,18 +6,21 @@
 ENTRY(RESET_ISR)
 EXTERN(vectorTable)
 
+/* Suppress newlib warnings */
+EXTERN(__assert_func)
+
 MEMORY
 {
-  FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 64K
-  RAM (rwx)  : ORIGIN = 0x20000000, LENGTH = 20K
+  ROM (rx)  : ORIGIN = 0x08000000, LENGTH = 64K
+  RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 20K
 
-  OB (rw)    : ORIGIN = 0x1FFFF800, LENGTH = 10
-  APB1 (rw)  : ORIGIN = 0x40000000, LENGTH = 64K
-  APB2 (rw)  : ORIGIN = 0x40010000, LENGTH = 32K
-  AHB (rw)   : ORIGIN = 0x40018000, LENGTH = 96K
-  USB (rw)   : ORIGIN = 0x50000000, LENGTH = 256K
-  FSMC (rw)  : ORIGIN = 0xA0000000, LENGTH = 256
-  PPB (rw)   : ORIGIN = 0xE0000000, LENGTH = 1M
+  OB (rw)   : ORIGIN = 0x1FFFF800, LENGTH = 10
+  APB1 (rw) : ORIGIN = 0x40000000, LENGTH = 64K
+  APB2 (rw) : ORIGIN = 0x40010000, LENGTH = 32K
+  AHB (rw)  : ORIGIN = 0x40018000, LENGTH = 96K
+  USB (rw)  : ORIGIN = 0x50000000, LENGTH = 256K
+  FSMC (rw) : ORIGIN = 0xA0000000, LENGTH = 256
+  PPB (rw)  : ORIGIN = 0xE0000000, LENGTH = 1M
 }
 
 SECTIONS
@@ -36,7 +39,7 @@ SECTIONS
 
     . = ALIGN(4);
     _sidata = .;
-  } >FLASH =0xFF
+  } >ROM =0xFF
 
   .data : AT(_sidata) ALIGN(4)
   {

@@ -7,31 +7,25 @@ set(VERSION_HW_MINOR 0 PARENT_SCOPE)
 set(STRING_VENDOR "Private" PARENT_SCOPE)
 set(STRING_PRODUCT "LPC17xx DevKit" PARENT_SCOPE)
 
-# Prepare memory layout
-set(MEM_ORIGIN 0)
+set(FLASH_BASE 0)
 
 # Generate linker scripts
 if((DEFINED CMAKE_BUILD_TYPE) AND (${CMAKE_BUILD_TYPE} MATCHES "Release|MinSizeRel"))
-    math(EXPR APP_LENGTH "48 * 1024")
+    math(EXPR FLASH_SIZE "64 * 1024")
     math(EXPR DFU_LENGTH "16 * 1024")
-    math(EXPR APP_ORIGIN "${MEM_ORIGIN} + ${DFU_LENGTH}")
 else()
-    math(EXPR APP_LENGTH "192 * 1024")
+    math(EXPR FLASH_SIZE "256 * 1024")
     math(EXPR DFU_LENGTH "64 * 1024")
-
-    if(USE_DFU)
-        math(EXPR APP_ORIGIN "${MEM_ORIGIN} + ${DFU_LENGTH}")
-    else()
-        math(EXPR APP_ORIGIN "${MEM_ORIGIN}")
-    endif()
 endif()
 
-# Linker script for a bootloader
-set(FLASH_ORIGIN ${MEM_ORIGIN})
-set(FLASH_LENGTH ${DFU_LENGTH})
-configure_file("memory.ld" "${PROJECT_BINARY_DIR}/bootloader.ld")
+# Generate linker script
+if(USE_DFU)
+    math(EXPR ROM_LENGTH "${FLASH_SIZE} - ${DFU_LENGTH}")
+    math(EXPR ROM_ORIGIN "${FLASH_BASE} + ${DFU_LENGTH}")
+else()
+    math(EXPR ROM_LENGTH "${FLASH_SIZE}")
+    math(EXPR ROM_ORIGIN "${FLASH_BASE}")
+endif()
 
-# Linker script for an application
-set(FLASH_ORIGIN ${APP_ORIGIN})
-set(FLASH_LENGTH ${APP_LENGTH})
-configure_file("memory.ld" "${PROJECT_BINARY_DIR}/application.ld")
+# Linker script for a main application and tests
+configure_file("memory.ld" "${PROJECT_BINARY_DIR}/memory.ld")
