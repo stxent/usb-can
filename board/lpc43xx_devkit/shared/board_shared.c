@@ -9,6 +9,7 @@
 #include "version.h"
 #include <dpm/memory/m24.h>
 #include <halm/core/cortex/systick.h>
+#include <halm/delay.h>
 #include <halm/platform/lpc/can.h>
 #include <halm/platform/lpc/clocking.h>
 #include <halm/platform/lpc/i2c.h>
@@ -51,17 +52,19 @@ static void customStringWrapper(const void *argument, enum UsbLangId,
 /*----------------------------------------------------------------------------*/
 bool boardSetupClock(void)
 {
+  /* Divider D may be used by the bootloader for the SPIFI module */
+
   static const struct PllConfig audioPllConfig = {
-      .divisor = 4,
-      .multiplier = 40,
+      .divisor = 8,
+      .multiplier = 32,
       .source = CLOCK_EXTERNAL
-  };
-  static const struct GenericDividerConfig divConfig = {
-      .divisor = 3,
-      .source = CLOCK_AUDIO_PLL
   };
   static const struct ExternalOscConfig extOscConfig = {
       .frequency = 12000000
+  };
+  static const struct GenericDividerConfig sysDivConfig = {
+      .divisor = 2,
+      .source = CLOCK_PLL
   };
   static const struct PllConfig sysPllConfig = {
       .divisor = 2,
@@ -74,11 +77,25 @@ bool boardSetupClock(void)
       .source = CLOCK_EXTERNAL
   };
 
-  const bool clockSettingsLoaded = loadClockSettings(&sharedClockSettings);
+  bool clockSettingsLoaded = loadClockSettings(&sharedClockSettings);
+  const bool spifiClockEnabled = clockReady(SpifiClock);
+
+  if (clockSettingsLoaded)
+  {
+    /* Check clock sources */
+    if (!clockReady(ExternalOsc) || !clockReady(SystemPll))
+      clockSettingsLoaded = false;
+  }
 
   if (!clockSettingsLoaded)
   {
     clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_INTERNAL});
+
+    if (spifiClockEnabled)
+    {
+      /* Running from NOR Flash, switch SPIFI clock to IRC without disabling */
+      clockEnable(SpifiClock, &(struct GenericClockConfig){CLOCK_INTERNAL});
+    }
 
     if (clockEnable(ExternalOsc, &extOscConfig) != E_OK)
       return false;
@@ -89,29 +106,73 @@ bool boardSetupClock(void)
     while (!clockReady(SystemPll));
   }
 
-  /* Divider D may be used by bootloader to configure SPIM clock */
+  static const uint32_t spifiMaxFrequency = 30000000;
+  const uint32_t frequency = clockFrequency(SystemPll);
 
-  /* Make 120 MHz clock on AUDIO PLL */
+  /* CAN0 and CAN1 */
+
+  /* Make 48 MHz clock for CAN, clock should be less than 50 MHz */
   if (clockEnable(AudioPll, &audioPllConfig) != E_OK)
     return false;
   while (!clockReady(AudioPll));
+
+  /* CAN0 is connected to the APB3 bus */
+  clockEnable(Apb3Clock, &(struct GenericClockConfig){CLOCK_AUDIO_PLL});
+  /* CAN1 is connected to the APB1 bus */
+  clockEnable(Apb1Clock, &(struct GenericClockConfig){CLOCK_AUDIO_PLL});
+
+  /* USB0 */
 
   if (clockEnable(UsbPll, &usbPllConfig) != E_OK)
     return false;
   while (!clockReady(UsbPll));
 
-  /* Make 40 MHz clock for CAN, clock should be less than 50 MHz */
-  if (clockEnable(DividerC, &divConfig) != E_OK)
-    return false;
-  while (!clockReady(DividerC));
-
-  /* CAN0 is connected to the APB3 bus */
-  clockEnable(Apb3Clock, &(struct GenericClockConfig){CLOCK_IDIVC});
-  /* CAN1 is connected to the APB1 bus */
-  clockEnable(Apb1Clock, &(struct GenericClockConfig){CLOCK_IDIVC});
-
   clockEnable(Usb0Clock, &(struct GenericClockConfig){CLOCK_USB_PLL});
-  clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_PLL});
+
+  if (!clockSettingsLoaded)
+  {
+    if (sysPllConfig.divisor == 1)
+    {
+      /* High frequency, make a PLL clock divided by 2 for base clock ramp up */
+      clockEnable(DividerA, &sysDivConfig);
+      while (!clockReady(DividerA));
+
+      clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_IDIVA});
+      udelay(50);
+      clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_PLL});
+
+      /* Base clock is ready, temporary clock divider is not needed anymore */
+      clockDisable(DividerA);
+    }
+    else
+    {
+      /* Low CPU frequency */
+      clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_PLL});
+    }
+
+    /* SPIFI */
+    if (spifiClockEnabled)
+    {
+      /* Running from NOR Flash, update SPIFI clock without disabling */
+      if (frequency > spifiMaxFrequency)
+      {
+        const struct GenericDividerConfig spifiDivConfig = {
+            .divisor = (frequency + spifiMaxFrequency - 1) / spifiMaxFrequency,
+            .source = CLOCK_PLL
+        };
+
+        if (clockEnable(DividerD, &spifiDivConfig) != E_OK)
+          return false;
+        while (!clockReady(DividerD));
+
+        clockEnable(SpifiClock, &(struct GenericClockConfig){CLOCK_IDIVD});
+      }
+      else
+      {
+        clockEnable(SpifiClock, &(struct GenericClockConfig){CLOCK_PLL});
+      }
+    }
+  }
 
   return true;
 }
