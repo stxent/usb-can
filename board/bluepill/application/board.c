@@ -9,6 +9,7 @@
 #include <halm/core/cortex/nvic.h>
 #include <halm/core/cortex/systick.h>
 #include <halm/generic/lifetime_timer_32.h>
+#include <halm/generic/work_queue.h>
 #include <halm/platform/stm32/can.h>
 #include <halm/platform/stm32/clocking.h>
 #include <halm/platform/stm32/gptimer.h>
@@ -76,8 +77,12 @@ static const struct SerialDmaConfig serialDmaConfig = {
 static const struct IwdgConfig wdtConfig = {
     .period = 1000
 };
+
+static const struct WorkQueueConfig workQueueConfig = {
+    .size = 2
+};
 /*----------------------------------------------------------------------------*/
-bool boardSetupClock(void)
+void boardSetupClock(void)
 {
   static const struct ExternalOscConfig extOscConfig = {
       .frequency = 8000000
@@ -91,24 +96,24 @@ bool boardSetupClock(void)
       .source = CLOCK_PLL
   };
 
-  if (clockEnable(InternalLowSpeedOsc, NULL) != E_OK)
-    return false;
+  [[maybe_unused]] enum Result res;
+
+  res = clockEnable(InternalLowSpeedOsc, NULL);
+  assert(res == E_OK);
   while (!clockReady(InternalLowSpeedOsc));
 
-  if (clockEnable(ExternalOsc, &extOscConfig) != E_OK)
-    return false;
+  res = clockEnable(ExternalOsc, &extOscConfig);
+  assert(res == E_OK);
   while (!clockReady(ExternalOsc));
 
-  if (clockEnable(MainPll, &mainPllConfig) != E_OK)
-    return false;
+  res = clockEnable(MainPll, &mainPllConfig);
+  assert(res == E_OK);
   while (!clockReady(MainPll));
 
   clockEnable(Apb1Clock, &(struct BusClockConfig){2});
   clockEnable(Apb2Clock, &(struct BusClockConfig){1});
   clockEnable(MainClock, &(struct BusClockConfig){1});
   clockEnable(SystemClock, &systemClockConfigPll);
-
-  return true;
 }
 /*----------------------------------------------------------------------------*/
 void boardSetup(struct Board *board)
@@ -120,6 +125,11 @@ void boardSetup(struct Board *board)
   (void)wdtConfig;
   board->watchdog = NULL;
 #endif
+
+  /* Work Queues */
+
+  WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
+  assert(WQ_DEFAULT != NULL);
 
   /* Indication */
 
@@ -135,13 +145,9 @@ void boardSetup(struct Board *board)
 
   board->eventTimer = init(SysTick, &eventTimerConfig);
   assert(board->eventTimer != NULL);
-  timerSetOverflow(board->eventTimer,
-      timerGetFrequency(board->eventTimer) / EVENT_RATE);
 
-  const struct LifetimeTimer32Config chronoTimerConfig = {
-      .timer = board->baseTimer
-  };
-  board->chronoTimer = init(LifetimeTimer32, &chronoTimerConfig);
+  board->chronoTimer = init(LifetimeTimer32,
+      &(struct LifetimeTimer32Config){board->baseTimer});
   assert(board->chronoTimer != NULL);
 
   /* CAN */
@@ -167,13 +173,21 @@ void boardSetup(struct Board *board)
       .status = board->status,
       .storage = NULL
   };
-  proxyPortInit(&board->hub->ports[0], &proxyPortConfig);
+  [[maybe_unused]] const bool ready = proxyPortInit(&board->hub->ports[0],
+      &proxyPortConfig);
+  assert(ready);
 }
 /*----------------------------------------------------------------------------*/
-void boardStart(struct Board *board)
+int boardStart(struct Board *board)
 {
+  timerSetOverflow(board->eventTimer,
+      timerGetFrequency(board->eventTimer) / EVENT_RATE);
+
   timerEnable(board->chronoTimer);
   timerEnable(board->eventTimer);
+
+  wqStart(WQ_DEFAULT);
+  return 0;
 }
 /*----------------------------------------------------------------------------*/
 void resetToBootloader(void)

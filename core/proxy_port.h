@@ -46,8 +46,8 @@ BEGIN_DECLS
 
 struct ProxyHub *makeProxyHub(size_t);
 void proxyPortDeinit(struct ProxyPort *);
-void proxyPortInit(struct ProxyPort *, const struct ProxyPortConfig *);
-void proxyPortInitTemplate(struct ProxyPort *, const struct ProxyPortConfig *,
+bool proxyPortInit(struct ProxyPort *, const struct ProxyPortConfig *);
+bool proxyPortInitTemplate(struct ProxyPort *, const struct ProxyPortConfig *,
     const struct EntityClass *);
 
 END_DECLS

@@ -10,17 +10,20 @@
 #include "led_indicator.h"
 #include <dpm/memory/m24.h>
 #include <halm/core/cortex/nvic.h>
+#include <halm/delay.h>
 #include <halm/generic/work_queue.h>
 #include <halm/generic/work_queue_irq.h>
 #include <halm/platform/lpc/backup_domain.h>
 #include <halm/usb/usb.h>
-#include <assert.h>
+#include <halm/watchdog.h>
 /*----------------------------------------------------------------------------*/
 #define EVENT_RATE    50
 #define MAX_BLINKS    16
 
 #define MEMORY_OFFSET 0
-
+/*----------------------------------------------------------------------------*/
+static void panic(struct Pin, struct Watchdog *);
+/*----------------------------------------------------------------------------*/
 DECLARE_WQ_IRQ(WQ_LP, SPI_ISR)
 /*----------------------------------------------------------------------------*/
 static const struct LedIndicatorConfig errorLedConfig = {
@@ -45,44 +48,67 @@ static const struct WorkQueueIrqConfig workQueueIrqConfig = {
     .priority = 0
 };
 /*----------------------------------------------------------------------------*/
+static void panic(struct Pin led, struct Watchdog *watchdog)
+{
+  while (1)
+  {
+    if (watchdog != NULL)
+      watchdogReload(watchdog);
+
+    pinToggle(led);
+    mdelay(500);
+  }
+}
+/*----------------------------------------------------------------------------*/
 void appBoardInit(struct Board *board)
 {
-  boardSetupClock();
+  struct Pin led = pinInit(BOARD_LED_ERROR);
+  pinOutput(led, false);
+
+  if (!boardSetupClock())
+    panic(led, NULL);
 
 #ifdef ENABLE_WDT
   board->watchdog = boardMakeWatchdog();
-  assert(board->watchdog != NULL);
+  if (board->watchdog == NULL)
+    panic(led, NULL);
 #else
   board->watchdog = NULL;
 #endif
 
-  /* Initialize Work Queues, start Low-Priority Work Queue */
+  /* Initialize Work Queues */
 
   WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
-  assert(WQ_DEFAULT != NULL);
+  if (WQ_DEFAULT == NULL)
+    panic(led, board->watchdog);
   WQ_LP = init(WorkQueueIrq, &workQueueIrqConfig);
-  assert(WQ_LP != NULL);
-  wqStart(WQ_LP);
+  if (WQ_LP == NULL)
+    panic(led, board->watchdog);
 
   /* Timers */
 
   board->chronoTimer = boardMakeChronoTimer();
-  assert(board->chronoTimer != NULL);
+  if (board->chronoTimer == NULL)
+    panic(led, board->watchdog);
 
   board->eepromTimer = boardMakeEepromTimer();
-  assert(board->eepromTimer != NULL);
+  if (board->eepromTimer == NULL)
+    panic(led, board->watchdog);
 
   board->eventTimer = boardMakeEventTimer();
-  assert(board->eventTimer != NULL);
-  timerSetOverflow(board->eventTimer,
-      timerGetFrequency(board->eventTimer) / EVENT_RATE);
+  if (board->eventTimer == NULL)
+    panic(led, board->watchdog);
 
-  /* I2C and parameter storage */
+  /* I2C and parameter storage, start Low-Priority Work Queue */
 
   board->i2c = boardMakeI2C();
-  assert(board->i2c != NULL);
+  if (board->i2c == NULL)
+    panic(led, board->watchdog);
   board->eeprom = boardMakeEeprom(board->i2c, board->eepromTimer);
-  assert(board->eeprom != NULL);
+  if (board->eeprom == NULL)
+    panic(led, board->watchdog);
+
+  wqStart(WQ_LP);
   m24SetUpdateWorkQueue(board->eeprom, WQ_LP);
 
   storageInit(&board->storage, board->eeprom, MEMORY_OFFSET);
@@ -92,26 +118,32 @@ void appBoardInit(struct Board *board)
   /* CAN */
 
   board->can = boardMakeCan();
-  assert(board->can != NULL);
+  if (board->can == NULL)
+    panic(led, board->watchdog);
 
   /* USB */
 
   board->usb = boardMakeUsb(&board->number);
-  assert(board->usb != NULL);
+  if (board->usb == NULL)
+    panic(led, board->watchdog);
   board->serial = boardMakeSerial(board->usb);
-  assert(board->serial != NULL);
+  if (board->serial == NULL)
+    panic(led, board->watchdog);
 
   /* Indication */
 
   board->error = init(LedIndicator, &errorLedConfig);
-  assert(board->error != NULL);
+  if (board->error == NULL)
+    panic(led, board->watchdog);
   board->status = init(LedIndicator, &portLedConfig);
-  assert(board->status != NULL);
+  if (board->status == NULL)
+    panic(led, board->watchdog);
 
   /* Create port hub and initialize all ports */
 
   board->hub = makeProxyHub(1);
-  assert(board->hub != NULL);
+  if (board->hub == NULL)
+    panic(led, board->watchdog);
 
   const struct ProxyPortConfig proxyPortConfig = {
       .can = board->can,
@@ -121,19 +153,21 @@ void appBoardInit(struct Board *board)
       .status = board->status,
       .storage = &board->storage
   };
-  proxyPortInit(&board->hub->ports[0], &proxyPortConfig);
+  if (!proxyPortInit(&board->hub->ports[0], &proxyPortConfig))
+    panic(led, board->watchdog);
 }
 /*----------------------------------------------------------------------------*/
 int appBoardStart(struct Board *board)
 {
   usbDevSetConnected(board->usb, true);
 
+  timerSetOverflow(board->eventTimer,
+      timerGetFrequency(board->eventTimer) / EVENT_RATE);
+
   timerEnable(board->chronoTimer);
   timerEnable(board->eventTimer);
 
-  /* Start Work Queue */
   wqStart(WQ_DEFAULT);
-
   return 0;
 }
 /*----------------------------------------------------------------------------*/

@@ -1,0 +1,70 @@
+when:
+  - event: [push, manual]
+
+clone:
+  git:
+    image: ${DOCKER_PREFIX}/network-utils
+    pull: true
+    commands:
+      - git clone ${CI_REPO_CLONE_URL} project
+      - cd project
+      - git checkout ${CI_COMMIT_SHA}
+      - git submodule update --init --recursive
+      - export REPO_REVISION=`git rev-list HEAD --count`
+      - echo "ARTIFACT_PREFIX=${CI_REPO_NAME}_r$${REPO_REVISION}-${CI_COMMIT_SHA:0:8}_b${CI_PIPELINE_NUMBER}" >> envvars
+
+steps:
+  build_bluepill:
+    image: ${DOCKER_PREFIX}/gcc-arm-embedded
+    pull: true
+    commands:
+      - cd project
+      - cmake . -B build-bluepill -DPLATFORM=STM32F1XX -DBOARD=bluepill -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m3.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_LTO=ON -DUSE_WDT=ON
+      - make -C build-bluepill -j `nproc`
+
+  build_lpc17xx:
+    image: ${DOCKER_PREFIX}/gcc-arm-embedded
+    pull: true
+    commands:
+      - cd project
+      - cmake . -B build-lpc17xx -DPLATFORM=LPC17XX -DBOARD=lpc17xx_devkit -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m3.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_DFU=ON -DUSE_LTO=ON -DUSE_WDT=ON
+      - make -C build-lpc17xx -j `nproc`
+
+  build_lpc43xx:
+    image: ${DOCKER_PREFIX}/gcc-arm-embedded
+    pull: true
+    commands:
+      - cd project
+      - cmake . -B build-lpc43xx -DPLATFORM=LPC43XX -DBOARD=lpc43xx_devkit -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m4.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_DFU=ON -DUSE_LTO=ON -DUSE_WDT=ON
+      - make -C build-lpc43xx -j `nproc`
+
+  build_lpc43xx-nor:
+    image: ${DOCKER_PREFIX}/gcc-arm-embedded
+    pull: true
+    commands:
+      - cd project
+      - cmake . -B build-lpc43xx-nor -DPLATFORM=LPC43XX -DBOARD=lpc43xx_devkit -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m4.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_DFU=ON -DUSE_LTO=ON -DUSE_NOR=ON -DUSE_WDT=ON
+      - make -C build-lpc43xx-nor -j `nproc`
+
+  deploy:
+    image: ${DOCKER_PREFIX}/network-utils
+    pull: true
+    commands:
+      - cd project
+      - source ./envvars
+      - mkdir deploy
+      - |
+        for BUILD_DIR in "-bluepill" "-lpc17xx" "-lpc43xx" "-lpc43xx-nor" ; do
+          cd "build$${BUILD_DIR}" && find . ! -path "*CMakeFiles*" -name "*.bin" | xargs tar -cvJ -f ../deploy/$${ARTIFACT_PREFIX}$${BUILD_DIR}.tar.xz && cd -
+        done
+      - cd deploy
+      - smbclient "//$${DEPLOY_SERVER_ENV}" -U "$${DEPLOY_USER_NAME_ENV}%$${DEPLOY_USER_PASSWORD_ENV}" -c "mkdir ${CI_REPO_NAME}" || true
+      - smbclient "//$${DEPLOY_SERVER_ENV}" -U "$${DEPLOY_USER_NAME_ENV}%$${DEPLOY_USER_PASSWORD_ENV}" -c "cd ${CI_REPO_NAME}; mkdir ${CI_COMMIT_BRANCH}" || true
+      - smbclient "//$${DEPLOY_SERVER_ENV}" -U "$${DEPLOY_USER_NAME_ENV}%$${DEPLOY_USER_PASSWORD_ENV}" -c "cd ${CI_REPO_NAME}/${CI_COMMIT_BRANCH}; prompt; mput *"
+    environment:
+      DEPLOY_SERVER_ENV:
+        from_secret: DEPLOY_SERVER
+      DEPLOY_USER_NAME_ENV:
+        from_secret: DEPLOY_USER_NAME
+      DEPLOY_USER_PASSWORD_ENV:
+        from_secret: DEPLOY_USER_PASSWORD

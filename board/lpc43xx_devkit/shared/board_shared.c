@@ -238,7 +238,7 @@ struct Timer *boardMakeEventTimer(void)
 struct Interface *boardMakeI2C(void)
 {
   static const struct I2CConfig i2cConfig = {
-      .rate = 100000,
+      .rate = 400000,
       .scl = PIN(PORT_2, 4),
       .sda = PIN(PORT_2, 3),
       .priority = PRI_I2C,

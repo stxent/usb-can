@@ -27,8 +27,8 @@ struct Board
   struct ProxyHub *hub;
 };
 /*----------------------------------------------------------------------------*/
-bool boardSetupClock(void);
+void boardSetupClock(void);
 void boardSetup(struct Board *);
-void boardStart(struct Board *);
+int boardStart(struct Board *);
 /*----------------------------------------------------------------------------*/
 #endif /* BOARD_BLUEPILL_APPLICATION_BOARD_H_ */
