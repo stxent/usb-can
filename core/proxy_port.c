@@ -53,7 +53,7 @@ void proxyPortDeinit(struct ProxyPort *port)
   deinit(port->proxy);
 }
 /*----------------------------------------------------------------------------*/
-void proxyPortInitTemplate(struct ProxyPort *port,
+bool proxyPortInitTemplate(struct ProxyPort *port,
     const struct ProxyPortConfig *config, const struct EntityClass *type)
 {
   const struct CanProxyConfig proxyConfig = {
@@ -71,10 +71,10 @@ void proxyPortInitTemplate(struct ProxyPort *port,
   port->mode.next = SLCAN_MODE_DISABLED;
 
   port->proxy = init(type, &proxyConfig);
-  assert(port->proxy);
+  return port->proxy != NULL;
 }
 /*----------------------------------------------------------------------------*/
-void proxyPortInit(struct ProxyPort *port, const struct ProxyPortConfig *config)
+bool proxyPortInit(struct ProxyPort *port, const struct ProxyPortConfig *config)
 {
-  proxyPortInitTemplate(port, config, CanProxy);
+  return proxyPortInitTemplate(port, config, CanProxy);
 }

@@ -5,14 +5,8 @@
  */
 
 #include "board.h"
-#include <halm/generic/work_queue.h>
 #include <halm/watchdog.h>
-#include <assert.h>
 #include <stdlib.h>
-/*----------------------------------------------------------------------------*/
-static const struct WorkQueueConfig workQueueConfig = {
-    .size = 2
-};
 /*----------------------------------------------------------------------------*/
 static void onTimerEventCallback(void *argument)
 {
@@ -58,16 +52,8 @@ int main(void)
   struct Board * const board = malloc(sizeof(struct Board));
 
   boardSetupClock();
-
-  /* Initialize Work Queue */
-  WQ_DEFAULT = init(WorkQueue, &workQueueConfig);
-  assert(WQ_DEFAULT != NULL);
-
   boardSetup(board);
-  timerSetCallback(board->eventTimer, onTimerEventCallback, board);
-  boardStart(board);
 
-  /* Start Work Queue */
-  wqStart(WQ_DEFAULT);
-  return 0;
+  timerSetCallback(board->eventTimer, onTimerEventCallback, board);
+  return boardStart(board);
 }

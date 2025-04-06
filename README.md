@@ -72,8 +72,8 @@ Pins used on LPC43xx:
 ```sh
 P3[1] - CAN0 RXD
 P3[2] - CAN0 TXD
-P2[3] - I2C2 SDA
-P2[4] - I2C2 SCL
+P2[3] - I2C1 SDA
+P2[4] - I2C1 SCL
 P5[5] - RX/TX LED
 P5[7] - Error LED
 

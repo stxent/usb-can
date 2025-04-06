@@ -18,7 +18,6 @@
 #include <halm/usb/cdc_acm.h>
 #include <halm/usb/usb.h>
 #include <halm/usb/usb_string.h>
-#include <assert.h>
 #include <string.h>
 /*----------------------------------------------------------------------------*/
 /* LPC17xx has 32 priority levels */

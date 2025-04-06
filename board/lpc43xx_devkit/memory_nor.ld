@@ -4,7 +4,7 @@
  */
 
 ENTRY(RESET_ISR)
-EXTERN(vectorTable)
+EXTERN(vector_table)
 
 /* Suppress newlib warnings */
 EXTERN(__assert_func)
@@ -57,12 +57,9 @@ SECTIONS
     *(.rodata*)
 
     _etext = .;
-
-    . = ALIGN(4);
-    _sidata = .;
   } >ROM =0xFF
 
-  .data : AT(_sidata) ALIGN(4)
+  .data : ALIGN(4)
   {
     _sdata = .;
 
@@ -70,7 +67,9 @@ SECTIONS
     *(.data*)
 
     _edata = .;
-  } >SRAM1
+  } >SRAM1 AT >ROM
+
+  _sidata = LOADADDR(.data);
 
   .bss : ALIGN(4)
   {
@@ -83,7 +82,7 @@ SECTIONS
     _ebss = .;
 
     . = ALIGN(4);
-    heapStart = .;
+    heap_start = .;
   } >SRAM1
 
   .sram2 (NOLOAD) : ALIGN(4)
@@ -171,7 +170,7 @@ SECTIONS
     *(.gnu.linkonce.armextab.*)
   }
 
-  PROVIDE(end = heapStart);
+  PROVIDE(end = heap_start);
   PROVIDE(_stack = ORIGIN(SRAM1) + LENGTH(SRAM1));
 
   PROVIDE(_seeprom = ORIGIN(EEPROM));
