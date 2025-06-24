@@ -7,10 +7,9 @@
  #ifndef CORE_CAN_PROXY_DEFS_H_
  #define CORE_CAN_PROXY_DEFS_H_
 /*----------------------------------------------------------------------------*/
-#include <stdbool.h>
+#include <xcore/helpers.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <xcore/helpers.h>
 /*----------------------------------------------------------------------------*/
 struct CANStandardMessage;
 
