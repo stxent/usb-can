@@ -54,8 +54,8 @@ steps:
       - source ./envvars
       - mkdir deploy
       - |
-        for BUILD_DIR in "-bluepill" "-lpc17xx" "-lpc43xx" "-lpc43xx-nor" ; do
-          cd "build$${BUILD_DIR}" && find . ! -path "*CMakeFiles*" -name "*.bin" | xargs tar -cvJ -f ../deploy/$${ARTIFACT_PREFIX}$${BUILD_DIR}.tar.xz && cd -
+        for BUILD_DIR in "bluepill" "lpc17xx" "lpc43xx" "lpc43xx-nor" ; do
+          cd "build-$${BUILD_DIR}" && find . ! -path "*CMakeFiles*" -name "*.bin" | xargs tar -cvJ -f ../deploy/$${ARTIFACT_PREFIX}_$${BUILD_DIR}.tar.xz && cd -
         done
       - cd deploy
       - smbclient "//$${DEPLOY_SERVER_ENV}" -U "$${DEPLOY_USER_NAME_ENV}%$${DEPLOY_USER_PASSWORD_ENV}" -c "mkdir ${CI_REPO_NAME}" || true
