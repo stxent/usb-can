@@ -1,6 +1,6 @@
 /*
- * board/lpc17xx_devkit/application/board.c
- * Copyright (C) 2019 xent
+ * board/blackboard/application/board.c
+ * Copyright (C) 2026 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
@@ -10,7 +10,7 @@
 #include "proxy_port.h"
 #include <halm/core/cortex/nvic.h>
 #include <halm/delay.h>
-#include <halm/platform/lpc/backup_domain.h>
+#include <halm/platform/stm32/backup_domain.h>
 #include <halm/usb/usb.h>
 #include <halm/watchdog.h>
 /*----------------------------------------------------------------------------*/

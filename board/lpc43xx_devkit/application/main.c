@@ -5,6 +5,7 @@
  */
 
 #include "board.h"
+#include "proxy_port.h"
 #include <halm/watchdog.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------*/

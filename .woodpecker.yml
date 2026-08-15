@@ -14,6 +14,14 @@ clone:
       - echo "ARTIFACT_PREFIX=${CI_REPO_NAME}_r$${REPO_REVISION}-${CI_COMMIT_SHA:0:8}_b${CI_PIPELINE_NUMBER}" >> envvars
 
 steps:
+  build_blackboard:
+    image: ${DOCKER_PREFIX}/gcc-arm-embedded
+    pull: true
+    commands:
+      - cd project
+      - cmake . -B build-blackboard -DPLATFORM=STM32F4XX -DBOARD=blackboard -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m4.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_DFU=ON -DUSE_LTO=ON -DUSE_WDT=ON
+      - make -C build-blackboard -j `nproc`
+
   build_bluepill:
     image: ${DOCKER_PREFIX}/gcc-arm-embedded
     pull: true
@@ -43,7 +51,7 @@ steps:
     pull: true
     commands:
       - cd project
-      - cmake . -B build-lpc43xx-nor -DPLATFORM=LPC43XX -DBOARD=lpc43xx_devkit -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m4.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_DFU=ON -DUSE_LTO=ON -DUSE_NOR=ON -DUSE_WDT=ON
+      - cmake . -B build-lpc43xx-nor -DPLATFORM=LPC43XX -DBOARD=lpc43xx_devkit -DCMAKE_TOOLCHAIN_FILE=libs/xcore/toolchains/cortex-m4.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_DFU=ON -DUSE_NOR=ON -DUSE_WDT=ON
       - make -C build-lpc43xx-nor -j `nproc`
 
   deploy:
@@ -54,7 +62,7 @@ steps:
       - source ./envvars
       - mkdir deploy
       - |
-        for BUILD_DIR in "bluepill" "lpc17xx" "lpc43xx" "lpc43xx-nor" ; do
+        for BUILD_DIR in "blackboard" "bluepill" "lpc17xx" "lpc43xx" "lpc43xx-nor" ; do
           cd "build-$${BUILD_DIR}" && find . ! -path "*CMakeFiles*" -name "*.bin" | xargs tar -cvJ -f ../deploy/$${ARTIFACT_PREFIX}_$${BUILD_DIR}.tar.xz && cd -
         done
       - cd deploy

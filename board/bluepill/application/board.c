@@ -171,7 +171,8 @@ void boardSetup(struct Board *board)
       .chrono = board->chronoTimer,
       .error = board->error,
       .status = board->status,
-      .storage = NULL
+      .settings = NULL,
+      .number = SLCAN_PORT_1
   };
   [[maybe_unused]] const bool ready = proxyPortInit(&board->hub->ports[0],
       &proxyPortConfig);

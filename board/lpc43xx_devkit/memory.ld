@@ -11,7 +11,9 @@ EXTERN(__assert_func)
 
 MEMORY
 {
+  /* Internal flash */
   ROM (rx)   : ORIGIN = ${ROM_ORIGIN}, LENGTH = ${ROM_LENGTH}
+  /* Internal EEPROM */
   EEPROM (r) : ORIGIN = 0x20040000, LENGTH = 16K - 128
 
   AHB (rw)   : ORIGIN = 0x40000000, LENGTH = 72K
@@ -40,15 +42,20 @@ MEMORY
 
 SECTIONS
 {
+  .shared (NOLOAD) : ALIGN(4)
+  {
+    *(.shared)
+  } >SRAM4
+
   .text : ALIGN(4)
   {
     _stext = .;
 
     *(.vectors)
     *(.text)
-    *(.text*)
+    *(.text.*)
     *(.rodata)
-    *(.rodata*)
+    *(.rodata.*)
 
     _etext = .;
   } >ROM =0xFF
@@ -58,7 +65,7 @@ SECTIONS
     _sdata = .;
 
     *(.data)
-    *(.data*)
+    *(.data.*)
 
     _edata = .;
   } >SRAM1 AT >ROM
@@ -70,7 +77,7 @@ SECTIONS
     _sbss = .;
 
     *(.bss)
-    *(.bss*)
+    *(.bss.*)
     *(COMMON)
 
     _ebss = .;
@@ -82,19 +89,16 @@ SECTIONS
   .sram2 (NOLOAD) : ALIGN(4)
   {
     *(.sram2)
-    *(.sram2*)
   } >SRAM2
 
   .sram3 (NOLOAD) : ALIGN(4)
   {
     *(.sram3)
-    *(.sram3*)
   } >SRAM3
 
   .sram4 (NOLOAD) : ALIGN(4)
   {
     *(.sram4)
-    *(.sram4*)
   } >SRAM4
 
   .ahb :
@@ -154,9 +158,6 @@ SECTIONS
 
   /DISCARD/ :
   {
-    *(.init)
-    *(.fini)
-
     *(.ARM.exidx*)
     *(.gnu.linkonce.armexidx.*)
 

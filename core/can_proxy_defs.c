@@ -166,6 +166,17 @@ size_t packFrame(void *buffer, const struct CANStandardMessage *message)
   }
 }
 /*----------------------------------------------------------------------------*/
+size_t packNumber4(void *buffer, char prefix, uint8_t value)
+{
+  char * const response = buffer;
+
+  response[0] = prefix;
+  response[1] = binToHex(value);
+  response[2] = '\r';
+
+  return 3;
+}
+/*----------------------------------------------------------------------------*/
 size_t packNumber16(void *buffer, char prefix, uint16_t value)
 {
   const struct PackedNumber16 response = {

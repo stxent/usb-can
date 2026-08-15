@@ -8,15 +8,13 @@
 #include "can_proxy_defs.h"
 #include "helpers.h"
 #include "indicator.h"
+#include "settings_project.h"
 #include "system.h"
 #include "version.h"
 #include <halm/generic/can.h>
 #include <halm/generic/serial.h>
 #include <halm/generic/work_queue.h>
-#include <halm/timer.h>
-#include <xcore/interface.h>
 #include <assert.h>
-#include <string.h>
 /*----------------------------------------------------------------------------*/
 struct CanProxy
 {
@@ -25,12 +23,13 @@ struct CanProxy
   struct Interface *can;
   struct Interface *serial;
   struct Timer *chrono;
-  struct ParamStorage *storage;
+  struct SettingsContext *settings;
 
-  ProxyCallback callback;
+  CanProxyCallback callback;
   void *argument;
 
   enum CanProxyMode mode;
+  enum CanProxyNumber number;
   bool blocking;
 
   struct
@@ -50,6 +49,8 @@ struct CanProxy
 static void canToSerial(struct CanProxy *);
 static void changePortMode(struct CanProxy *, enum CanProxyMode);
 static bool deserializeFrame(struct CanProxy *, const char *, size_t);
+static uint8_t getInitialRate(const struct CanProxy *);
+static uint16_t getSerialNumber(const struct CanProxy *);
 static void handleCanEvent(void *);
 static void handleSerialEvent(void *);
 static void mockEventHandler(void *, enum CanProxyMode, enum CanProxyEvent);
@@ -64,7 +65,10 @@ static void serializeFrames(struct CanProxy *,
     const struct CANStandardMessage *, size_t);
 static bool setBlockingMode(struct CanProxy *, const char *);
 static bool setCustomRate(struct CanProxy *, const char *);
+static bool setInitialRate(struct CanProxy *, const char *);
 static bool setPredefinedRate(struct CanProxy *, const char *);
+static bool setRetransmissionMode(struct CanProxy *, const char *);
+static bool setSerialNumber(struct CanProxy *, const char *);
 /*----------------------------------------------------------------------------*/
 static enum Result proxyInit(void *, const void *);
 static void proxyDeinit(void *);
@@ -140,6 +144,29 @@ static bool deserializeFrame(struct CanProxy *proxy, const char *request,
     proxy->callback(proxy->argument, proxy->mode, SLCAN_EVENT_SERIAL_ERROR);
     return false;
   }
+}
+/*----------------------------------------------------------------------------*/
+static uint8_t getInitialRate(const struct CanProxy *proxy)
+{
+  uint8_t value = 0xF;
+
+  if (proxy->settings != NULL)
+  {
+    const struct Settings * const settings = proxy->settings->data;
+
+    if (settings->initial[proxy->number] != -1)
+      value = (uint8_t)settings->initial[proxy->number];
+  }
+
+  return value;
+}
+/*----------------------------------------------------------------------------*/
+static uint16_t getSerialNumber(const struct CanProxy *proxy)
+{
+  if (proxy->settings != NULL)
+    return (uint16_t)((const struct Settings *)proxy->settings->data)->serial;
+  else
+    return 0xFFFF;
 }
 /*----------------------------------------------------------------------------*/
 static void handleCanEvent(void *argument)
@@ -305,11 +332,23 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
 
     case 'N':
     {
-      /* Read the serial number */
-      const uint16_t number = proxy->storage != NULL ?
-          (uint16_t)proxy->storage->values.serial : 0xFFFF;
-
-      return packNumber16(response, 'N', number);
+      if (length == 1)
+      {
+        /* Read the serial number */
+        const uint16_t number = getSerialNumber(proxy);
+        return packNumber16(response, 'N', number);
+      }
+      else if (length == 5)
+      {
+        /* Custom command: set the serial number */
+        if (setSerialNumber(proxy, request))
+          strcpy(response, "\r");
+        else
+          strcpy(response, "\a");
+      }
+      else
+        strcpy(response, "\a");
+      break;
     }
 
     case 'V':
@@ -317,6 +356,16 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
       /* Read hardware version */
       const struct BoardVersion * const ver = getBoardVersion();
       return packNumber16(response, 'V', (ver->hw.major << 8) | ver->hw.minor);
+    }
+
+    case 'A':
+    {
+      /* Custom command: enable or disable automatic retransmission */
+      if (length == 2 && setRetransmissionMode(proxy, request))
+        strcpy(response, "\r");
+      else
+        strcpy(response, "\a");
+      break;
     }
 
     case 'b':
@@ -337,15 +386,18 @@ static size_t processCommand(struct CanProxy *proxy, const char *request,
       break;
     }
 
-    case 'n':
+    case 'I':
     {
-      /* Custom command: set the serial number */
-      if (length == 5 && proxy->storage != NULL
-          && !isSerialNumberValid(proxy->storage->values.serial))
+      if (length == 1)
       {
-        proxy->storage->values.serial = inPlaceHexToBin4(&request[1]);
-
-        if (storageSave(proxy->storage))
+        /* Custom command: read default rate configuration */
+        const uint8_t value = getInitialRate(proxy);
+        return packNumber4(response, 'I', value);
+      }
+      else if (length == 2)
+      {
+        /* Custom command: set default rate configuration */
+        if (setInitialRate(proxy, request))
           strcpy(response, "\r");
         else
           strcpy(response, "\a");
@@ -568,30 +620,65 @@ static bool setCustomRate(struct CanProxy *proxy, const char *request)
   return ifSetParam(proxy->can, IF_RATE, &rate) == E_OK;
 }
 /*----------------------------------------------------------------------------*/
-static bool setPredefinedRate(struct CanProxy *proxy, const char *request)
+static bool setInitialRate(struct CanProxy *proxy, const char *request)
 {
-  static const uint32_t baudrateMap[] = {
-      10000,
-      20000,
-      50000,
-      100000,
-      125000,
-      250000,
-      500000,
-      800000,
-      1000000
-  };
-
-  const unsigned int code = hexToBin(request[1]);
-
-  if (code < ARRAY_SIZE(baudrateMap))
+  if (proxy->settings != NULL)
   {
-    return ifSetParam(proxy->can, IF_RATE, &baudrateMap[code]) == E_OK;
+    struct Settings * const settings = proxy->settings->data;
+    const uint8_t value = hexToBin(request[1]);
+
+    if (slcanRatePresetToValue(value))
+      settings->initial[proxy->number] = value;
+    else
+      settings->initial[proxy->number] = -1;
+    settingsSave(proxy->settings, NULL, NULL);
+
+    return true;
   }
   else
-  {
     return false;
+}
+/*----------------------------------------------------------------------------*/
+static bool setPredefinedRate(struct CanProxy *proxy, const char *request)
+{
+  const unsigned int code = hexToBin(request[1]);
+  const uint32_t rate = slcanRatePresetToValue(code);
+
+  if (rate)
+    return ifSetParam(proxy->can, IF_RATE, &rate) == E_OK;
+  else
+    return false;
+}
+/*----------------------------------------------------------------------------*/
+static bool setRetransmissionMode(struct CanProxy *proxy, const char *request)
+{
+  if (request[1] == '0')
+  {
+    return ifSetParam(proxy->can, IF_CAN_RETRANSMISSION, &(uint8_t){0}) == E_OK;
   }
+  else if (request[1] == '1')
+  {
+    return ifSetParam(proxy->can, IF_CAN_RETRANSMISSION, &(uint8_t){1}) == E_OK;
+  }
+  else
+    return false;
+}
+/*----------------------------------------------------------------------------*/
+static bool setSerialNumber(struct CanProxy *proxy, const char *request)
+{
+  if (proxy->settings != NULL)
+  {
+    struct Settings * const settings = proxy->settings->data;
+
+    if (!isSerialNumberValid(settings->serial))
+    {
+      settings->serial = inPlaceHexToBin4(&request[1]);
+      settingsSave(proxy->settings, NULL, NULL);
+      return true;
+    }
+  }
+
+  return false;
 }
 /*----------------------------------------------------------------------------*/
 static enum Result proxyInit(void *object, const void *configBase)
@@ -606,11 +693,13 @@ static enum Result proxyInit(void *object, const void *configBase)
   proxy->can = config->can;
   proxy->serial = config->serial;
   proxy->chrono = config->chrono;
-  proxy->storage = config->storage;
+  proxy->settings = config->settings;
 
   proxy->callback = config->callback ? config->callback : mockEventHandler;
   proxy->argument = config->argument;
+
   proxy->mode = SLCAN_MODE_DISABLED;
+  proxy->number = config->number;
   proxy->blocking = false;
   proxy->parser.position = 0;
   proxy->parser.skip = false;
@@ -629,4 +718,40 @@ static void proxyDeinit(void *object)
 
   ifSetCallback(proxy->serial, NULL, NULL);
   ifSetCallback(proxy->can, NULL, NULL);
+}
+/*----------------------------------------------------------------------------*/
+void canProxyChangeMode(struct CanProxy *proxy, enum CanProxyMode mode)
+{
+  changePortMode(proxy, mode);
+}
+/*----------------------------------------------------------------------------*/
+bool canProxyChangeRate(struct CanProxy *proxy, uint32_t rate)
+{
+  if (rate)
+  {
+    ifSetParam(proxy->can, IF_RATE, &rate);
+    return true;
+  }
+  else
+    return false;
+}
+/*----------------------------------------------------------------------------*/
+uint32_t slcanRatePresetToValue(unsigned int preset)
+{
+  static const uint32_t RATE_MAP[] = {
+      10000,
+      20000,
+      50000,
+      100000,
+      125000,
+      250000,
+      500000,
+      800000,
+      1000000
+  };
+
+  if (preset < ARRAY_SIZE(RATE_MAP))
+    return RATE_MAP[preset];
+  else
+    return 0;
 }

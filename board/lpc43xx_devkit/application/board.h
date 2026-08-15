@@ -7,22 +7,17 @@
 #ifndef BOARD_LPC43XX_DEVKIT_APPLICATION_BOARD_H_
 #define BOARD_LPC43XX_DEVKIT_APPLICATION_BOARD_H_
 /*----------------------------------------------------------------------------*/
-#include "param_storage.h"
-#include "proxy_port.h"
+#include "board_shared.h"
+#include "settings_project.h"
 /*----------------------------------------------------------------------------*/
-struct Interface;
-struct Timer;
-struct Watchdog;
+struct ProxyHub;
 
 struct Board
 {
-  struct Entity *usb;
+  struct Usb *usb;
   struct Interface *can;
-  struct Interface *i2c;
-  struct Interface *eeprom;
   struct Interface *serial;
   struct Timer *chronoTimer;
-  struct Timer *eepromTimer;
   struct Timer *eventTimer;
   struct Watchdog *watchdog;
 
@@ -30,8 +25,10 @@ struct Board
   struct Indicator *status;
   struct ProxyHub *hub;
 
-  struct ParamStorage storage;
-  struct SerialNumber number;
+  struct MemoryPackage memoryPackage;
+  struct SettingsContext configContext;
+  struct Settings config;
+  char number[SERIAL_NUMBER_LENGTH];
 };
 /*----------------------------------------------------------------------------*/
 void appBoardInit(struct Board *);

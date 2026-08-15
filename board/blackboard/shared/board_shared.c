@@ -1,6 +1,6 @@
 /*
- * board/lpc17xx_devkit/shared/board_shared.c
- * Copyright (C) 2019 xent
+ * board/blackboard/shared/board_shared.c
+ * Copyright (C) 2026 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
@@ -9,28 +9,28 @@
 #include <dpm/memory/m24.h>
 #include <halm/core/cortex/systick.h>
 #include <halm/generic/work_queue.h>
-#include <halm/platform/lpc/can.h>
-#include <halm/platform/lpc/clocking.h>
-#include <halm/platform/lpc/i2c.h>
-#include <halm/platform/lpc/gptimer.h>
-#include <halm/platform/lpc/usb_device.h>
-#include <halm/platform/lpc/wdt.h>
+#include <halm/platform/stm32/can.h>
+#include <halm/platform/stm32/clocking.h>
+#include <halm/platform/stm32/i2c.h>
+#include <halm/platform/stm32/iwdg.h>
+#include <halm/platform/stm32/gptimer.h>
+#include <halm/platform/stm32/usb_device.h>
 #include <halm/usb/cdc_acm.h>
 #include <halm/usb/usb.h>
 #include <halm/usb/usb_string.h>
 #include <string.h>
 /*----------------------------------------------------------------------------*/
-/* LPC17xx has 32 priority levels */
+/* STM32 has 16 priority levels */
 
 #define PRI_CHRONO  5
 #define PRI_CAN     4
-/* PRI_GPDMA 3 */
+/* PRI_DMA 3 */
 #define PRI_USB     2
 #define PRI_I2C     1
 #define PRI_TIMER   1
 /* PRI_WQ_LP 0 */
 /*----------------------------------------------------------------------------*/
-DECLARE_WQ_IRQ(WQ_LP, SPI_ISR)
+DECLARE_WQ_IRQ(WQ_LP, FLASH_ISR)
 /*----------------------------------------------------------------------------*/
 static void customStringHeader(const void *, enum UsbLangId,
     struct UsbDescriptor *, void *);
@@ -51,35 +51,41 @@ static void customStringWrapper(const void *argument, enum UsbLangId,
 /*----------------------------------------------------------------------------*/
 bool boardSetupClock(void)
 {
+  static const struct BusClockConfig apbClockConfigFast = {
+      .divisor = 2
+  };
+  static const struct BusClockConfig apbClockConfigSlow = {
+      .divisor = 4
+  };
   static const struct ExternalOscConfig extOscConfig = {
-      .frequency = 12000000
+      .frequency = 8000000
   };
-  static const struct PllConfig sysPllConfig = {
-      .divisor = 3,
-      .multiplier = 25,
+  static const struct MainClockConfig mainClockConfig = {
+      .divisor = 1,
+      .range = VR_2V7_3V6
+  };
+  static const struct PllConfig mainPllConfig = {
+      .divisor = 2,
+      .multiplier = 42,
       .source = CLOCK_EXTERNAL
   };
-  static const struct PllConfig usbPllConfig = {
-      .divisor = 4,
-      .multiplier = 16,
-      .source = CLOCK_EXTERNAL
+  static const struct SystemClockConfig systemClockConfigPll = {
+      .source = CLOCK_PLL
   };
 
   if (clockEnable(ExternalOsc, &extOscConfig) != E_OK)
     return false;
   while (!clockReady(ExternalOsc));
 
-  if (clockEnable(SystemPll, &sysPllConfig) != E_OK)
+  if (clockEnable(MainPll, &mainPllConfig) != E_OK)
     return false;
-  while (!clockReady(SystemPll));
+  while (!clockReady(MainPll));
 
-  if (clockEnable(UsbPll, &usbPllConfig) != E_OK)
-    return false;
-  while (!clockReady(UsbPll));
+  clockEnable(Apb1Clock, &apbClockConfigSlow);
+  clockEnable(Apb2Clock, &apbClockConfigFast);
+  clockEnable(SystemClock, &systemClockConfigPll);
 
-  clockEnable(UsbClock, &(struct GenericClockConfig){CLOCK_USB_PLL});
-  clockEnable(MainClock, &(struct GenericClockConfig){CLOCK_PLL});
-
+  clockEnable(MainClock, &mainClockConfig);
   return true;
 }
 /*----------------------------------------------------------------------------*/
@@ -96,7 +102,7 @@ void boardSetupLowPriorityWQ(void)
 {
   static const struct WorkQueueIrqConfig wqConfig = {
       .size = 1,
-      .irq = SPI_IRQ,
+      .irq = FLASH_IRQ,
       .priority = 0
   };
 
@@ -106,14 +112,13 @@ void boardSetupLowPriorityWQ(void)
 struct Interface *boardMakeCan(void)
 {
   static const struct CanConfig canConfig = {
-      .rate = 10000,
+      .rate = 100000,
       .rxBuffers = 32,
       /* TX buffer count should be at least SERIALIZED_QUEUE_SIZE */
       .txBuffers = 32,
-      .rx = PIN(0, 0),
-      .tx = PIN(0, 1),
-      .priority = PRI_CAN,
-      .channel = 0
+      .rx = PIN(PORT_B, 8),
+      .tx = PIN(PORT_B, 9),
+      .channel = CAN1
   };
 
   return init(Can, &canConfig);
@@ -124,7 +129,7 @@ struct Timer *boardMakeChronoTimer(void)
   static const struct GpTimerConfig chronoTimerConfig = {
       .frequency = 1000000,
       .priority = PRI_CHRONO,
-      .channel = 0
+      .channel = TIM2
   };
 
   return init(GpTimer, &chronoTimerConfig);
@@ -140,7 +145,7 @@ struct Timer *boardMakeMemoryTimer(void)
   static const struct GpTimerConfig eepromTimerConfig = {
       .frequency = 1000000,
       .priority = PRI_I2C,
-      .channel = 1
+      .channel = TIM5
   };
 
   return init(GpTimer, &eepromTimerConfig);
@@ -150,10 +155,11 @@ struct Interface *boardMakeI2C(void)
 {
   static const struct I2CConfig i2cConfig = {
       .rate = 400000,
-      .scl = PIN(0, 11),
-      .sda = PIN(0, 10),
-      .priority = PRI_I2C,
-      .channel = 2
+      .scl = PIN(PORT_B, 6),
+      .sda = PIN(PORT_B, 7),
+      .channel = I2C1,
+      .rxDma = DMA1_STREAM0,
+      .txDma = DMA1_STREAM6
   };
 
   return init(I2C, &i2cConfig);
@@ -177,15 +183,13 @@ struct Interface *boardMakeSerial(struct Usb *usb)
   return init(CdcAcm, &config);
 }
 /*----------------------------------------------------------------------------*/
-struct Usb *boardMakeUsb(void)
+struct Usb *boardMakeUsb()
 {
   static const struct UsbDeviceConfig usbConfig = {
-      .dm = PIN(0, 30),
-      .dp = PIN(0, 29),
-      .connect = PIN(2, 9),
-      .vbus = PIN(1, 30),
-      .vid = 0x2404,
-      .pid = 0x03EB,
+      .dm = PIN(PORT_A, 11),
+      .dp = PIN(PORT_A, 12),
+      .vid = 0x15A2,
+      .pid = 0x0044,
       .priority = PRI_USB,
       .channel = 0
   };
@@ -222,11 +226,14 @@ void boardMakeUsbStrings(struct Usb *usb, const char *number)
 /*----------------------------------------------------------------------------*/
 struct Watchdog *boardMakeWatchdog(void)
 {
-  static const struct WdtConfig wdtConfig = {
+  static const struct IwdgConfig iwdgConfig = {
       .period = 1000
   };
 
-  return init(Wdt, &wdtConfig);
+  clockEnable(InternalLowSpeedOsc, NULL);
+  while (!clockReady(InternalLowSpeedOsc));
+
+  return init(Iwdg, &iwdgConfig);
 }
 /*----------------------------------------------------------------------------*/
 bool boardSetupMemoryPackage(struct MemoryPackage *package)
@@ -241,7 +248,7 @@ bool boardSetupMemoryPackage(struct MemoryPackage *package)
       .bus = i2c,
       .timer = timer,
       .address = 0x50,
-      .chipSize = 65536,
+      .chipSize = 8192,
       .pageSize = 32,
       .rate = 0,
       .blocks = 1

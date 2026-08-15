@@ -5,11 +5,11 @@
  */
 
 #include "board_shared.h"
-#include "param_storage.h"
 #include "version.h"
 #include <dpm/memory/m24.h>
 #include <halm/core/cortex/systick.h>
 #include <halm/delay.h>
+#include <halm/generic/work_queue.h>
 #include <halm/platform/lpc/can.h>
 #include <halm/platform/lpc/clocking.h>
 #include <halm/platform/lpc/i2c.h>
@@ -30,6 +30,8 @@
 #define PRI_I2C     1
 #define PRI_TIMER   1
 /* PRI_WQ_LP 0 */
+/*----------------------------------------------------------------------------*/
+DECLARE_WQ_IRQ(WQ_LP, SPI_ISR)
 /*----------------------------------------------------------------------------*/
 [[gnu::section(".shared")]] static struct ClockSettings sharedClockSettings;
 /*----------------------------------------------------------------------------*/
@@ -177,6 +179,26 @@ bool boardSetupClock(void)
   return true;
 }
 /*----------------------------------------------------------------------------*/
+void boardSetupDefaultWQ(void)
+{
+  static const struct WorkQueueConfig wqConfig = {
+      .size = 3
+  };
+
+  WQ_DEFAULT = init(WorkQueue, &wqConfig);
+}
+/*----------------------------------------------------------------------------*/
+void boardSetupLowPriorityWQ(void)
+{
+  static const struct WorkQueueIrqConfig wqConfig = {
+      .size = 1,
+      .irq = SPI_IRQ,
+      .priority = 0
+  };
+
+  WQ_LP = init(WorkQueueIrq, &wqConfig);
+}
+/*----------------------------------------------------------------------------*/
 struct Interface *boardMakeCan(void)
 {
   static const struct CanConfig canConfig = {
@@ -204,22 +226,12 @@ struct Timer *boardMakeChronoTimer(void)
   return init(GpTimer, &chronoTimerConfig);
 }
 /*----------------------------------------------------------------------------*/
-struct Interface *boardMakeEeprom(struct Interface *bus, struct Timer *timer)
+struct Timer *boardMakeEventTimer(void)
 {
-  const struct M24Config config = {
-      .bus = bus,
-      .timer = timer,
-      .address = 0x50,
-      .chipSize = 65536,
-      .pageSize = 32,
-      .rate = 0, /* Use default rate */
-      .blocks = 1
-  };
-
-  return init(M24, &config);
+  return init(SysTick, &(struct SysTickConfig){PRI_TIMER});
 }
 /*----------------------------------------------------------------------------*/
-struct Timer *boardMakeEepromTimer(void)
+struct Timer *boardMakeMemoryTimer(void)
 {
   static const struct GpTimerConfig eepromTimerConfig = {
       .frequency = 1000000,
@@ -228,11 +240,6 @@ struct Timer *boardMakeEepromTimer(void)
   };
 
   return init(GpTimer, &eepromTimerConfig);
-}
-/*----------------------------------------------------------------------------*/
-struct Timer *boardMakeEventTimer(void)
-{
-  return init(SysTick, &(struct SysTickConfig){PRI_TIMER});
 }
 /*----------------------------------------------------------------------------*/
 struct Interface *boardMakeI2C(void)
@@ -248,7 +255,7 @@ struct Interface *boardMakeI2C(void)
   return init(I2C, &i2cConfig);
 }
 /*----------------------------------------------------------------------------*/
-struct Interface *boardMakeSerial(struct Entity *usb)
+struct Interface *boardMakeSerial(struct Usb *usb)
 {
   /* CDC */
   const struct CdcAcmConfig config = {
@@ -266,7 +273,7 @@ struct Interface *boardMakeSerial(struct Entity *usb)
   return init(CdcAcm, &config);
 }
 /*----------------------------------------------------------------------------*/
-struct Entity *boardMakeUsb(const struct SerialNumber *number)
+struct Usb *boardMakeUsb(void)
 {
   static const struct UsbDeviceConfig usbConfig = {
       .dm = PIN(PORT_USB, PIN_USB0_DM),
@@ -279,11 +286,12 @@ struct Entity *boardMakeUsb(const struct SerialNumber *number)
       .channel = 0
   };
 
-  /* USB Device */
-  struct Entity * const usb = init(UsbDevice, &usbConfig);
-
-  if (usb == NULL)
-    return NULL;
+  return init(UsbDevice, &usbConfig);
+}
+/*----------------------------------------------------------------------------*/
+void boardMakeUsbStrings(struct Usb *usb, const char *number)
+{
+  const IrqState state = irqSave();
 
   /* USB Strings */
   usbDevStringAppend(usb, usbStringBuild(customStringHeader, NULL,
@@ -299,13 +307,13 @@ struct Entity *boardMakeUsb(const struct SerialNumber *number)
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
         getUsbProductString(), USB_STRING_PRODUCT, 0));
   }
-  if (number != NULL && strlen(number->value) > 0)
+  if (number != NULL && strlen(number) > 0)
   {
     usbDevStringAppend(usb, usbStringBuild(customStringWrapper,
-        number->value, USB_STRING_SERIAL, 0));
+        number, USB_STRING_SERIAL, 0));
   }
 
-  return usb;
+  irqRestore(state);
 }
 /*----------------------------------------------------------------------------*/
 struct Watchdog *boardMakeWatchdog(void)
@@ -315,4 +323,36 @@ struct Watchdog *boardMakeWatchdog(void)
   };
 
   return init(Wdt, &wdtConfig);
+}
+/*----------------------------------------------------------------------------*/
+bool boardSetupMemoryPackage(struct MemoryPackage *package)
+{
+  struct Interface * const i2c = boardMakeI2C();
+  struct Timer * const timer = boardMakeMemoryTimer();
+
+  if (i2c == NULL || timer == NULL)
+    return false;
+
+  const struct M24Config memoryConfig = {
+      .bus = i2c,
+      .timer = timer,
+      .address = 0x50,
+      .chipSize = 65536,
+      .pageSize = 32,
+      .rate = 0,
+      .blocks = 1
+  };
+  struct Interface * const memory = init(M24, &memoryConfig);
+
+  if (memory != NULL)
+  {
+    m24SetUpdateWorkQueue(memory, WQ_LP);
+
+    package->i2c = i2c;
+    package->timer = timer;
+    package->memory = memory;
+    return true;
+  }
+  else
+    return false;
 }

@@ -1,21 +1,17 @@
 /*
- * board/lpc17xx_devkit/shared/board_shared.h
- * Copyright (C) 2019 xent
+ * board/blackboard/shared/board_shared.h
+ * Copyright (C) 2026 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#ifndef BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_
-#define BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_
+#ifndef BOARD_BLACKBOARD_SHARED_BOARD_SHARED_H_
+#define BOARD_BLACKBOARD_SHARED_BOARD_SHARED_H_
 /*----------------------------------------------------------------------------*/
 #include <halm/generic/work_queue_irq.h>
 #include <halm/pin.h>
 /*----------------------------------------------------------------------------*/
-#define BOARD_LED_R_PIN PIN(1, 10)
-#define BOARD_LED_G_PIN PIN(1, 9)
-#define BOARD_LED_B_PIN PIN(1, 8)
-
-#define BOARD_LED_BUSY  BOARD_LED_G_PIN
-#define BOARD_LED_ERROR BOARD_LED_R_PIN
+#define BOARD_LED_BUSY  PIN(PORT_F, 9)
+#define BOARD_LED_ERROR PIN(PORT_F, 10)
 /*----------------------------------------------------------------------------*/
 struct Interface;
 struct Timer;
@@ -47,4 +43,4 @@ struct Watchdog *boardMakeWatchdog(void);
 
 bool boardSetupMemoryPackage(struct MemoryPackage *);
 /*----------------------------------------------------------------------------*/
-#endif /* BOARD_LPC17XX_DEVKIT_SHARED_BOARD_SHARED_H_ */
+#endif /* BOARD_BLACKBOARD_SHARED_BOARD_SHARED_H_ */

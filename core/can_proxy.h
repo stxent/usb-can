@@ -7,13 +7,13 @@
 #ifndef CORE_CAN_PROXY_H_
 #define CORE_CAN_PROXY_H_
 /*----------------------------------------------------------------------------*/
-#include "param_storage.h"
+#include "settings.h"
 #include <halm/timer.h>
 #include <xcore/interface.h>
 /*----------------------------------------------------------------------------*/
 extern const struct EntityClass * const CanProxy;
 
-enum CanProxyEvent
+enum [[gnu::packed]] CanProxyEvent
 {
   SLCAN_EVENT_NONE,
   SLCAN_EVENT_RX,
@@ -32,17 +32,37 @@ enum [[gnu::packed]] CanProxyMode
   SLCAN_MODE_LOOPBACK
 };
 
-typedef void (*ProxyCallback)(void *, enum CanProxyMode, enum CanProxyEvent);
+enum [[gnu::packed]] CanProxyNumber
+{
+  SLCAN_PORT_1,
+  SLCAN_PORT_2,
+  SLCAN_PORT_3,
+
+  SLCAN_PORT_END
+};
+
+struct CanProxy;
+typedef void (*CanProxyCallback)(void *, enum CanProxyMode, enum CanProxyEvent);
 
 struct CanProxyConfig
 {
   struct Interface *can;
   struct Interface *serial;
   struct Timer *chrono;
-  struct ParamStorage *storage;
+  struct SettingsContext *settings;
 
-  ProxyCallback callback;
+  CanProxyCallback callback;
   void *argument;
+
+  enum CanProxyNumber number;
 };
+/*----------------------------------------------------------------------------*/
+BEGIN_DECLS
+
+void canProxyChangeMode(struct CanProxy *, enum CanProxyMode);
+bool canProxyChangeRate(struct CanProxy *, uint32_t);
+uint32_t slcanRatePresetToValue(unsigned int);
+
+END_DECLS
 /*----------------------------------------------------------------------------*/
 #endif /* CORE_CAN_PROXY_H_ */

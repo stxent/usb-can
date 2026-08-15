@@ -9,7 +9,6 @@
 /*----------------------------------------------------------------------------*/
 #include "can_proxy.h"
 #include "indicator.h"
-#include "param_storage.h"
 /*----------------------------------------------------------------------------*/
 struct Indicator;
 
@@ -20,7 +19,8 @@ struct ProxyPortConfig
   struct Timer *chrono;
   struct Indicator *error;
   struct Indicator *status;
-  struct ParamStorage *storage;
+  struct SettingsContext *settings;
+  enum CanProxyNumber number;
 };
 
 struct ProxyPort
@@ -49,6 +49,7 @@ void proxyPortDeinit(struct ProxyPort *);
 bool proxyPortInit(struct ProxyPort *, const struct ProxyPortConfig *);
 bool proxyPortInitTemplate(struct ProxyPort *, const struct ProxyPortConfig *,
     const struct EntityClass *);
+bool proxyPortChangeMode(struct ProxyPort *, enum CanProxyMode, uint32_t);
 
 END_DECLS
 /*----------------------------------------------------------------------------*/

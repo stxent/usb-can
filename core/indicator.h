@@ -7,7 +7,7 @@
 #ifndef CORE_INDICATOR_H_
 #define CORE_INDICATOR_H_
 /*----------------------------------------------------------------------------*/
-#include "can_proxy.h"
+#include <xcore/entity.h>
 /*----------------------------------------------------------------------------*/
 /* Class descriptor */
 struct IndicatorClass

@@ -1,11 +1,11 @@
 /*
- * board/lpc17xx_devkit/application/board.h
- * Copyright (C) 2019 xent
+ * board/blackboard/application/board.h
+ * Copyright (C) 2026 xent
  * Project is distributed under the terms of the GNU General Public License v3.0
  */
 
-#ifndef BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_
-#define BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_
+#ifndef BOARD_BLACKBOARD_APPLICATION_BOARD_H_
+#define BOARD_BLACKBOARD_APPLICATION_BOARD_H_
 /*----------------------------------------------------------------------------*/
 #include "board_shared.h"
 #include "settings_project.h"
@@ -34,4 +34,4 @@ struct Board
 void appBoardInit(struct Board *);
 int appBoardStart(struct Board *);
 /*----------------------------------------------------------------------------*/
-#endif /* BOARD_LPC17XX_DEVKIT_APPLICATION_BOARD_H_ */
+#endif /* BOARD_BLACKBOARD_APPLICATION_BOARD_H_ */

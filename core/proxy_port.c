@@ -53,6 +53,11 @@ void proxyPortDeinit(struct ProxyPort *port)
   deinit(port->proxy);
 }
 /*----------------------------------------------------------------------------*/
+bool proxyPortInit(struct ProxyPort *port, const struct ProxyPortConfig *config)
+{
+  return proxyPortInitTemplate(port, config, CanProxy);
+}
+/*----------------------------------------------------------------------------*/
 bool proxyPortInitTemplate(struct ProxyPort *port,
     const struct ProxyPortConfig *config, const struct EntityClass *type)
 {
@@ -60,9 +65,10 @@ bool proxyPortInitTemplate(struct ProxyPort *port,
       .can = config->can,
       .serial = config->serial,
       .chrono = config->chrono,
-      .storage = config->storage,
+      .settings = config->settings,
       .callback = onProxyEvent,
-      .argument = port
+      .argument = port,
+      .number = config->number
   };
 
   port->error = config->error;
@@ -74,7 +80,27 @@ bool proxyPortInitTemplate(struct ProxyPort *port,
   return port->proxy != NULL;
 }
 /*----------------------------------------------------------------------------*/
-bool proxyPortInit(struct ProxyPort *port, const struct ProxyPortConfig *config)
+bool proxyPortChangeMode(struct ProxyPort *port, enum CanProxyMode mode,
+    uint32_t rate)
 {
-  return proxyPortInitTemplate(port, config, CanProxy);
+  if (port->mode.next != mode)
+  {
+    if (mode == SLCAN_MODE_ACTIVE && canProxyChangeRate(port->proxy, rate))
+    {
+      canProxyChangeMode(port->proxy, mode);
+
+      if (port->status && mode != SLCAN_MODE_DISABLED)
+        indicatorSet(port->status, 1);
+
+      port->mode.next = mode;
+      return true;
+    }
+  }
+  else
+  {
+    if (canProxyChangeRate(port->proxy, rate))
+      return true;
+  }
+
+  return false;
 }
